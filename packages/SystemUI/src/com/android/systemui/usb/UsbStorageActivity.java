@@ -47,6 +47,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.android.internal.R;
+import com.android.systemui.usb.Utils;
 
 import java.util.List;
 
@@ -263,8 +264,10 @@ public class UsbStorageActivity extends Activity
             public void run() {
                 if (on) {
                     mStorageManager.enableUsbMassStorage();
+                    Utils.enableExternalUsbMassStorage();
                 } else {
                     mStorageManager.disableUsbMassStorage();
+                    Utils.disableExternalUsbMassStorage();
                 }
             }
         });
