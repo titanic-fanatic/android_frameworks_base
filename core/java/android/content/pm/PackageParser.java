@@ -262,17 +262,6 @@ public class PackageParser {
     }
     */
 
-    public static String getLockedZipFilePath(String path) {
-        if (path == null) {
-            return null;
-        }
-        if (isPackageFilename(path)) {
-            return path.substring(0, path.length() - 4) + ".locked.zip";
-        } else {
-            return path + ".locked.zip";
-        }
-    }
-
     /**
      * Generate and return the {@link PackageInfo} for a parsed package.
      *
@@ -314,17 +303,14 @@ public class PackageParser {
         pi.sharedUserId = p.mSharedUserId;
         pi.sharedUserLabel = p.mSharedUserLabel;
         pi.isThemeApk = p.mIsThemeApk;
-        pi.setDrmProtectedThemeApk(false);
+
         if (pi.isThemeApk) {
+            pi.mOverlayTargets = p.mOverlayTargets;
             int N = p.mThemeInfos.size();
             if (N > 0) {
                 pi.themeInfos = new ThemeInfo[N];
                 for (int i = 0; i < N; i++) {
                     pi.themeInfos[i] = p.mThemeInfos.get(i);
-                    pi.setDrmProtectedThemeApk(pi.isDrmProtectedThemeApk() || pi.themeInfos[i].isDrmProtected);
-                }
-                if (pi.isDrmProtectedThemeApk()) {
-                    pi.setLockedZipFilePath(PackageParser.getLockedZipFilePath(p.mPath));
                 }
             }
         }
@@ -336,6 +322,7 @@ public class PackageParser {
         }
         pi.restrictedAccountType = p.mRestrictedAccountType;
         pi.requiredAccountType = p.mRequiredAccountType;
+        pi.overlayTarget = p.mOverlayTarget;
         pi.firstInstallTime = firstInstallTime;
         pi.lastUpdateTime = lastUpdateTime;
         if ((flags&PackageManager.GET_GIDS) != 0) {
@@ -521,6 +508,11 @@ public class PackageParser {
 
     public Package parsePackage(File sourceFile, String destCodePath,
             DisplayMetrics metrics, int flags) {
+        return parsePackage(sourceFile, destCodePath, metrics, flags, false);
+    }
+
+    public Package parsePackage(File sourceFile, String destCodePath,
+            DisplayMetrics metrics, int flags, boolean trustedOverlay) {
         mParseError = PackageManager.INSTALL_SUCCEEDED;
 
         mArchiveSourcePath = sourceFile.getPath();
@@ -573,7 +565,7 @@ public class PackageParser {
         Exception errorException = null;
         try {
             // XXXX todo: need to figure out correct configuration.
-            pkg = parsePackage(res, parser, flags, errorText);
+            pkg = parsePackage(res, parser, flags, trustedOverlay, errorText);
         } catch (Exception e) {
             errorException = e;
             mParseError = PackageManager.INSTALL_PARSE_FAILED_UNEXPECTED_EXCEPTION;
@@ -986,8 +978,8 @@ public class PackageParser {
     }
 
     private Package parsePackage(
-        Resources res, XmlResourceParser parser, int flags, String[] outError)
-        throws XmlPullParserException, IOException {
+        Resources res, XmlResourceParser parser, int flags, boolean trustedOverlay,
+        String[] outError) throws XmlPullParserException, IOException {
         AttributeSet attrs = parser;
 
         mParseInstrumentationArgs = null;
@@ -1086,6 +1078,31 @@ public class PackageParser {
                 if (!parseApplication(pkg, res, parser, attrs, flags, outError)) {
                     return null;
                 }
+            } else if (tagName.equals("overlay")) {
+                pkg.mTrustedOverlay = trustedOverlay;
+
+                sa = res.obtainAttributes(attrs,
+                        com.android.internal.R.styleable.AndroidManifestResourceOverlay);
+                pkg.mOverlayTarget = sa.getString(
+                        com.android.internal.R.styleable.AndroidManifestResourceOverlay_targetPackage);
+                pkg.mOverlayPriority = sa.getInt(
+                        com.android.internal.R.styleable.AndroidManifestResourceOverlay_priority,
+                        -1);
+                sa.recycle();
+
+                if (pkg.mOverlayTarget == null) {
+                    outError[0] = "<overlay> does not specify a target package";
+                    mParseError = PackageManager.INSTALL_PARSE_FAILED_MANIFEST_MALFORMED;
+                    return null;
+                }
+                if (pkg.mOverlayPriority < 0 || pkg.mOverlayPriority > 9999) {
+                    outError[0] = "<overlay> priority must be between 0 and 9999";
+                    mParseError =
+                        PackageManager.INSTALL_PARSE_FAILED_MANIFEST_MALFORMED;
+                    return null;
+                }
+                XmlUtils.skipCurrentTag(parser);
+
             } else if (tagName.equals("keys")) {
                 if (!parseKeys(pkg, res, parser, attrs, outError)) {
                     return null;
@@ -1361,10 +1378,7 @@ public class PackageParser {
                 // Just skip this tag
                 XmlUtils.skipCurrentTag(parser);
                 continue;
-            } else if (tagName.equals("theme")) {
-                // this is a theme apk.
-                pkg.mIsThemeApk = true;
-                pkg.mThemeInfos.add(new ThemeInfo(parser, res, attrs));
+                
             } else if (RIGID_PARSER) {
                 outError[0] = "Bad element under <manifest>: "
                     + parser.getName();
@@ -1902,33 +1916,6 @@ public class PackageParser {
         return a;
     }
 
-    private void parseApplicationThemeAttributes(XmlPullParser parser, AttributeSet attrs,
-            ApplicationInfo appInfo) {
-        for (int i = 0; i < attrs.getAttributeCount(); i++) {
-            if (!ApplicationInfo.isPlutoNamespace(parser.getAttributeNamespace(i))) {
-                continue;
-            }
-            String attrName = attrs.getAttributeName(i);
-            if (attrName.equalsIgnoreCase(ApplicationInfo.PLUTO_ISTHEMEABLE_ATTRIBUTE_NAME)) {
-                appInfo.isThemeable = attrs.getAttributeBooleanValue(i, false);
-                return;
-            }
-        }
-    }
-
-    private void parseActivityThemeAttributes(XmlPullParser parser, AttributeSet attrs,
-            ActivityInfo ai) {
-        for (int i = 0; i < attrs.getAttributeCount(); i++) {
-            if (!ApplicationInfo.isPlutoNamespace(parser.getAttributeNamespace(i))) {
-                continue;
-            }
-            String attrName = attrs.getAttributeName(i);
-            if (attrName.equalsIgnoreCase(ApplicationInfo.PLUTO_HANDLE_THEME_CONFIG_CHANGES_ATTRIBUTE_NAME)) {
-                ai.configChanges |= ActivityInfo.CONFIG_THEME_RESOURCE;
-            }
-        }
-    }
-
     private boolean parseApplication(Package owner, Resources res,
             XmlPullParser parser, AttributeSet attrs, int flags, String[] outError)
         throws XmlPullParserException, IOException {
@@ -1937,7 +1924,6 @@ public class PackageParser {
 
         // assume that this package is themeable unless explicitly set to false.
         ai.isThemeable = true;
-        parseApplicationThemeAttributes(parser, attrs, ai);
 
         TypedArray sa = res.obtainAttributes(attrs,
                 com.android.internal.R.styleable.AndroidManifestApplication);
@@ -2524,8 +2510,6 @@ public class PackageParser {
         if (outError[0] != null) {
             return null;
         }
-
-        parseActivityThemeAttributes(parser, attrs, a.info);
 
         int outerDepth = parser.getDepth();
         int type;
@@ -3585,7 +3569,7 @@ public class PackageParser {
 
         // Theme info
         public final ArrayList<ThemeInfo> mThemeInfos = new ArrayList<ThemeInfo>(0);
-        
+
         // // User set enabled state.
         // public int mSetEnabled = PackageManager.COMPONENT_ENABLED_STATE_DEFAULT;
         //
@@ -3625,6 +3609,10 @@ public class PackageParser {
          * same as another.
          */
         public ManifestDigest manifestDigest;
+
+        public String mOverlayTarget;
+        public int mOverlayPriority;
+        public boolean mTrustedOverlay;
 
         /**
          * Data used to feed the KeySetManager

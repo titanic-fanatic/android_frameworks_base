@@ -40,7 +40,6 @@ import android.content.res.AssetManager;
 import android.content.res.CompatibilityInfo;
 import android.content.res.Configuration;
 import android.content.res.CustomTheme;
-import android.content.res.PackageRedirectionMap;
 import android.content.res.Resources;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteDebug;
@@ -1538,11 +1537,11 @@ public final class ActivityThread {
     /**
      * Creates the top level resources for the given package.
      */
-    Resources getTopLevelResources(String resDir,
+    Resources getTopLevelResources(String resDir, String[] overlayDirs,
             int displayId, Configuration overrideConfiguration,
             LoadedApk pkgInfo) {
-        return mResourcesManager.getTopLevelResources(resDir, displayId, overrideConfiguration,
-                pkgInfo.getCompatibilityInfo(), null);
+        return mResourcesManager.getTopLevelResources(resDir, overlayDirs, displayId,
+                overrideConfiguration, pkgInfo.getCompatibilityInfo(), null);
     }
 
     final Handler getHandler() {

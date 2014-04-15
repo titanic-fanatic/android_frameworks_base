@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2005 The Android Open Source Project
- * This code has been modified.  Portions copyright (C) 2010, T-Mobile USA, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +23,6 @@
 #include <androidfw/Asset.h>
 #include <utils/ByteOrder.h>
 #include <utils/Errors.h>
-#include <androidfw/PackageRedirectionMap.h>
 #include <utils/String16.h>
 #include <utils/Vector.h>
 
@@ -1301,9 +1299,6 @@ public:
                  bool copyData=false, const void* idmap = NULL);
     status_t add(ResTable* src);
 
-    void addRedirections(PackageRedirectionMap* resMap);
-    void clearRedirections();
-
     status_t getError() const;
 
     void uninit();
@@ -1352,8 +1347,6 @@ public:
                              uint32_t* outLastRef = NULL,
                              uint32_t* inoutTypeSpecFlags = NULL,
                              ResTable_config* outConfig = NULL) const;
-
-    uint32_t lookupRedirectionMap(uint32_t resID) const;
 
     enum {
         TMP_BUFFER_SIZE = 16
@@ -1563,18 +1556,22 @@ public:
     // Return value: on success: NO_ERROR; caller is responsible for free-ing
     // outData (using free(3)). On failure, any status_t value other than
     // NO_ERROR; the caller should not free outData.
-    status_t createIdmap(const ResTable& overlay, uint32_t originalCrc, uint32_t overlayCrc,
-                         void** outData, size_t* outSize) const;
+    status_t createIdmap(const ResTable& overlay,
+            uint32_t targetCrc, uint32_t overlayCrc,
+            const char* targetPath, const char* overlayPath,
+            void** outData, uint32_t* outSize) const;
 
     enum {
-        IDMAP_HEADER_SIZE_BYTES = 3 * sizeof(uint32_t),
+        IDMAP_HEADER_SIZE_BYTES = 3 * sizeof(uint32_t) + 2 * 256,
     };
     // Retrieve idmap meta-data.
     //
     // This function only requires the idmap header (the first
     // IDMAP_HEADER_SIZE_BYTES) bytes of an idmap file.
     static bool getIdmapInfo(const void* idmap, size_t size,
-                             uint32_t* pOriginalCrc, uint32_t* pOverlayCrc);
+            uint32_t* pTargetCrc, uint32_t* pOverlayCrc,
+            String8* pTargetPath, String8* pOverlayPath);
+
     void removeAssetsByCookie(const String8 &packageName, void* cookie);
 
     void print(bool inclValues) const;
@@ -1616,11 +1613,6 @@ private:
     // Mapping from resource package IDs to indices into the internal
     // package array.
     uint8_t                     mPackageMap[256];
-
-    // Resource redirection mapping provided by the applied theme (if there is
-    // one).  Resources requested which are found in this map will be
-    // automatically redirected to the appropriate themed value.
-    Vector<PackageRedirectionMap*> mRedirectionMap;
 };
 
 }   // namespace android
