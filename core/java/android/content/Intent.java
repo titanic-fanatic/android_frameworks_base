@@ -673,6 +673,12 @@ public class Intent implements Parcelable, Cloneable {
     public static final String ACTION_PICK = "android.intent.action.PICK";
 
     /**
+     * Global Action: Battery services start/stop
+     * @hide
+     */
+    public static final String ACTION_BATTERY_SERVICES = "android.intent.action.BATTERY_SERVICES";
+
+    /**
      * Activity Action: Creates a shortcut.
      * <p>Input: Nothing.</p>
      * <p>Output: An Intent representing the shortcut. The intent must contain three
@@ -688,6 +694,22 @@ public class Intent implements Parcelable, Cloneable {
      */
     @SdkConstant(SdkConstantType.ACTIVITY_INTENT_ACTION)
     public static final String ACTION_CREATE_SHORTCUT = "android.intent.action.CREATE_SHORTCUT";
+
+    /**
+     *  Global Action: Shows power menu dialog
+     *  <p>Input: nothing
+     *  <p>Output: nothing
+     *  @hide
+     */
+    public static final String ACTION_POWERMENU = "android.intent.action.POWERMENU";
+ 
+    /**
+     *  Global Action: Shows power menu reboot dialog
+     *  <p>Input: nothing
+     *  <p>Output: nothing
+     *  @hide
+     */
+    public static final String ACTION_POWERMENU_REBOOT = "android.intent.action.POWERMENU_REBOOT";
 
     /**
      * PhoneWindowManager: Take Screenshot via takeScreenshot()

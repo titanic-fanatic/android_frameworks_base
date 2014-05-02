@@ -33,6 +33,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.content.pm.ThemeUtils;
 import android.content.pm.UserInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.database.ContentObserver;
@@ -75,8 +76,6 @@ import android.widget.ImageView;
 import android.widget.ImageView.ScaleType;
 import android.widget.ListView;
 import android.widget.TextView;
-
-import com.android.internal.app.ThemeUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -131,6 +130,7 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
     private boolean mHasTelephony;
     private boolean mHasVibrator;
     private final boolean mShowSilentToggle;
+    private boolean showReboot;
 
     private static int mTextColor;
 
@@ -153,13 +153,14 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
 
         ThemeUtils.registerThemeChangeReceiver(context, mThemeChangeReceiver);
 
+        ConnectivityManager cm = (ConnectivityManager)
+                context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        mHasTelephony = cm.isNetworkSupported(ConnectivityManager.TYPE_MOBILE);
+
         // get notified of phone state changes
         TelephonyManager telephonyManager =
                 (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
         telephonyManager.listen(mPhoneStateListener, PhoneStateListener.LISTEN_SERVICE_STATE);
-        ConnectivityManager cm = (ConnectivityManager)
-                context.getSystemService(Context.CONNECTIVITY_SERVICE);
-        mHasTelephony = cm.isNetworkSupported(ConnectivityManager.TYPE_MOBILE);
         mContext.getContentResolver().registerContentObserver(
                 Settings.Global.getUriFor(Settings.Global.AIRPLANE_MODE_ON), true,
                 mAirplaneModeObserver);
@@ -174,7 +175,13 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
      * Show the global actions dialog (creating if necessary)
      * @param keyguardShowing True if keyguard is showing
      */
+
     public void showDialog(boolean keyguardShowing, boolean isDeviceProvisioned) {
+        showDialog(keyguardShowing, isDeviceProvisioned, false);
+    }
+
+    public void showDialog(boolean keyguardShowing, boolean isDeviceProvisioned, boolean mShowReboot) {
+        showReboot = mShowReboot;            
         mKeyguardShowing = keyguardShowing;
         mDeviceProvisioned = isDeviceProvisioned;
         if (mDialog != null) {

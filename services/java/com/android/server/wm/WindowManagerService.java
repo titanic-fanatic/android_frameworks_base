@@ -23,12 +23,11 @@ import static com.android.server.am.ActivityStackSupervisor.HOME_STACK_ID;
 import static android.view.WindowManagerPolicy.FINISH_LAYOUT_REDO_WALLPAPER;
 
 import android.app.AppOpsManager;
+import android.content.pm.ThemeUtils;
 import android.util.TimeUtils;
 import android.view.IWindowId;
 
 import com.android.internal.app.IBatteryStats;
-import com.android.internal.app.ThemeUtils;
-
 import com.android.internal.policy.PolicyManager;
 import com.android.internal.policy.impl.PhoneWindowManager;
 import com.android.internal.util.FastPrintWriter;
@@ -549,9 +548,9 @@ public class WindowManagerService extends IWindowManager.Stub
 
     PowerManagerService mPowerManager;
 
-    float mWindowAnimationScale = 1.0f;
-    float mTransitionAnimationScale = 1.0f;
-    float mAnimatorDurationScale = 1.0f;
+    float mWindowAnimationScale = 0.75f;
+    float mTransitionAnimationScale = 0.75f;
+    float mAnimatorDurationScale = 0.75f;
 
     final InputManagerService mInputManager;
     final DisplayManagerService mDisplayManagerService;
@@ -5226,6 +5225,12 @@ public class WindowManagerService extends IWindowManager.Stub
     @Override
     public void shutdown(boolean confirm) {
         ShutdownThread.shutdown(getUiContext(), confirm);
+    }
+
+    // Called by window manager policy.  Not exposed externally.
+    @Override
+    public void rebootTile() {
+        ShutdownThread.reboot(mContext, null, true);
     }
 
     // Called by window manager policy.  Not exposed externally.

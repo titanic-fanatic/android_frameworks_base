@@ -5,6 +5,7 @@ import java.util.ArrayList;
 public class QSConstants {
         public static final String TILE_USER = "toggleUser";
         public static final String TILE_BATTERY = "toggleBattery";
+        public static final String TILE_BATTERYSAVER = "toggleBatterySaver";
         public static final String TILE_SETTINGS = "toggleSettings";
         public static final String TILE_WIFI = "toggleWifi";
         public static final String TILE_GPS = "toggleGPS";
@@ -24,6 +25,7 @@ public class QSConstants {
         public static final String TILE_LTE = "toggleLte";
         public static final String TILE_WIMAX = "toggleWimax";
         public static final String TILE_PROFILE = "toggleProfile";
+        public static final String TILE_POWERMENU = "togglePowerMenu";
         public static final String TILE_PERFORMANCE_PROFILE = "togglePerformanceProfile";
         public static final String TILE_NFC = "toggleNfc";
         public static final String TILE_USBTETHER = "toggleUsbTether";

@@ -3493,6 +3493,20 @@ public final class Settings {
         public static final String REVERSE_LOOKUP_PROVIDER = "reverse_lookup_provider";
 
         /**
+         * The OpenCNAM paid account ID
+         *
+         * @hide
+         */
+        public static final String DIALER_OPENCNAM_ACCOUNT_SID = "dialer_opencnam_account_sid";
+
+        /**
+         * The OpenCNAM authentication token
+         *
+         * @hide
+         */
+        public static final String DIALER_OPENCNAM_AUTH_TOKEN = "dialer_opencnam_auth_token";
+
+        /**
          * Hide non clearable notifications from lockscreen notifications
          * @hide
          */
@@ -3981,6 +3995,12 @@ public final class Settings {
          * @hide
          */
         public static final String POWER_MENU_SOUND_ENABLED = "power_menu_silent_enabled";
+
+        /**
+         * Defines the custom path to use for UI sound effects (null for default)
+         * @hide
+         */
+        public static final String CUSTOM_SOUND_EFFECTS_PATH = "custom_sound_effects_path";
 
         /**
          * Swap volume buttons when the screen is rotated
@@ -4982,6 +5002,8 @@ public final class Settings {
             MOVED_TO_LOCK_SETTINGS.add(Secure.LOCK_PATTERN_ENABLED);
             MOVED_TO_LOCK_SETTINGS.add(Secure.LOCK_PATTERN_VISIBLE);
             MOVED_TO_LOCK_SETTINGS.add(Secure.LOCK_PATTERN_TACTILE_FEEDBACK_ENABLED);
+            MOVED_TO_LOCK_SETTINGS.add(Secure.LOCK_GESTURE_ENABLED);
+            MOVED_TO_LOCK_SETTINGS.add(Secure.LOCK_GESTURE_VISIBLE);
 
             MOVED_TO_GLOBAL = new HashSet<String>();
             MOVED_TO_GLOBAL.add(Settings.Global.ADB_ENABLED);
@@ -5096,6 +5118,34 @@ public final class Settings {
             MOVED_TO_GLOBAL.add(Settings.Global.SET_GLOBAL_HTTP_PROXY);
             MOVED_TO_GLOBAL.add(Settings.Global.DEFAULT_DNS_SERVER);
             MOVED_TO_GLOBAL.add(Settings.Global.PREFERRED_NETWORK_MODE);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_OPTION);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_NORMAL_MODE);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_POWER_SAVING_MODE);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_SCREEN_OFF);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_IGNORE_LOCKED);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_MODE_CHANGE_DELAY);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_BATTERY_MODE);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_BATTERY_LEVEL);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_BLUETOOTH_MODE);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_LOCATION_MODE);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_WIFI_MODE);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_DATA_MODE);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_SHOW_TOAST);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_NETWORK_INTERVAL_MODE);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_NOSIGNAL_MODE);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_SYNC_MODE);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_KILLALL_MODE);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_LED_MODE);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_LED_DISABLE);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_VIBRATE_MODE);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_VIBRATE_DISABLE);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_CPU_MODE);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_CPU_FREQ);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_CPU_FREQ_DEFAULT);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_BRIGHTNESS_MODE);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_BRIGHTNESS_LEVEL);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_START);
+            MOVED_TO_GLOBAL.add(Settings.Global.BATTERY_SAVER_END);
         }
 
         /** @hide */
@@ -5740,6 +5790,18 @@ public final class Settings {
         @Deprecated
         public static final String
                 LOCK_PATTERN_TACTILE_FEEDBACK_ENABLED = "lock_pattern_tactile_feedback_enabled";
+
+        /**
+         * Whether autolock is enabled (0 = false, 1 = true)
+         * @hide
+         */
+        public static final String LOCK_GESTURE_ENABLED = "lock_gesture_autolock";
+
+        /**
+         * Whether lock gesture is visible as user enters (0 = false, 1 = true)
+         * @hide
+         */
+        public static final String LOCK_GESTURE_VISIBLE = "lock_gesture_visible_pattern";
 
         /**
          * This preference allows the device to be locked given time after screen goes off,
@@ -8263,6 +8325,174 @@ public final class Settings {
          */
         public static final String PREFERRED_NETWORK_MODE =
                 "preferred_network_mode";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_OPTION =
+                "battery_saver_option";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_NORMAL_MODE =
+                "battery_saver_normal_mode";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_POWER_SAVING_MODE =
+                "battery_saver_power_saving_mode";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_SCREEN_OFF =
+                "battery_saver_screen_off";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_IGNORE_LOCKED =
+                "battery_saver_ignore_locked";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_MODE_CHANGE_DELAY =
+                "battery_saver_mode_change_delay";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_BATTERY_MODE =
+                "battery_saver_battery_mode";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_BATTERY_LEVEL =
+                "battery_saver_battery_level";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_BLUETOOTH_MODE =
+                "battery_saver_bluetooth_mode";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_LOCATION_MODE =
+                "battery_saver_location_mode";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_WIFI_MODE =
+                "battery_saver_wifi_mode";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_DATA_MODE =
+                "battery_saver_data_mode";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_NOSIGNAL_MODE =
+                "battery_saver_nosignal_mode";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_NETWORK_INTERVAL_MODE =
+                "battery_saver_network_interval_mode";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_SYNC_MODE =
+                "battery_saver_sync_mode";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_SHOW_TOAST =
+                "battery_saver_show_toast";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_KILLALL_MODE =
+                "battery_saver_killall_mode";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_LED_MODE =
+                "battery_saver_led_mode";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_LED_DISABLE =
+                "battery_saver_led_disable";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_VIBRATE_MODE =
+                "battery_saver_vibrate_mode";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_VIBRATE_DISABLE =
+                "battery_saver_vibrate_disable";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_CPU_MODE =
+                "battery_saver_cpu_mode";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_CPU_FREQ =
+                "battery_saver_cpu_freq";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_CPU_FREQ_DEFAULT =
+                "battery_saver_cpu_freq_default";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_BRIGHTNESS_MODE =
+                "battery_saver_brightness_mode";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_BRIGHTNESS_LEVEL =
+                "battery_saver_brightness_level";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_START =
+                "battery_saver_start";
+
+        /**
+         * @hide
+         */
+        public static final String BATTERY_SAVER_END =
+                "battery_saver_end";
 
         /**
          * Name of an application package to be debugged.

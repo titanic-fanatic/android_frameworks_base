@@ -20,6 +20,7 @@ import static com.android.internal.util.cm.QSConstants.TILES_DEFAULT;
 import static com.android.internal.util.cm.QSConstants.TILE_AIRPLANE;
 import static com.android.internal.util.cm.QSConstants.TILE_AUTOROTATE;
 import static com.android.internal.util.cm.QSConstants.TILE_BATTERY;
+import static com.android.internal.util.cm.QSConstants.TILE_BATTERYSAVER;
 import static com.android.internal.util.cm.QSConstants.TILE_BLUETOOTH;
 import static com.android.internal.util.cm.QSConstants.TILE_BRIGHTNESS;
 import static com.android.internal.util.cm.QSConstants.TILE_CAMERA;
@@ -35,6 +36,7 @@ import static com.android.internal.util.cm.QSConstants.TILE_NETWORKADB;
 import static com.android.internal.util.cm.QSConstants.TILE_NETWORKMODE;
 import static com.android.internal.util.cm.QSConstants.TILE_NFC;
 import static com.android.internal.util.cm.QSConstants.TILE_PROFILE;
+import static com.android.internal.util.cm.QSConstants.TILE_POWERMENU;
 import static com.android.internal.util.cm.QSConstants.TILE_PERFORMANCE_PROFILE;
 import static com.android.internal.util.cm.QSConstants.TILE_QUIETHOURS;
 import static com.android.internal.util.cm.QSConstants.TILE_RINGER;
@@ -73,6 +75,7 @@ import com.android.systemui.quicksettings.AirplaneModeTile;
 import com.android.systemui.quicksettings.AlarmTile;
 import com.android.systemui.quicksettings.AutoRotateTile;
 import com.android.systemui.quicksettings.BatteryTile;
+import com.android.systemui.quicksettings.BatterySaverTile;
 import com.android.systemui.quicksettings.BluetoothTile;
 import com.android.systemui.quicksettings.BrightnessTile;
 import com.android.systemui.quicksettings.BugReportTile;
@@ -91,6 +94,7 @@ import com.android.systemui.quicksettings.NfcTile;
 import com.android.systemui.quicksettings.PerformanceProfileTile;
 import com.android.systemui.quicksettings.PreferencesTile;
 import com.android.systemui.quicksettings.ProfileTile;
+import com.android.systemui.quicksettings.PowerMenuTile;
 import com.android.systemui.quicksettings.QuickSettingsTile;
 import com.android.systemui.quicksettings.QuickRecordTile;
 import com.android.systemui.quicksettings.QuietHoursTile;
@@ -235,8 +239,12 @@ public class QuickSettingsController {
                 qs = new CameraTile(mContext, this, mHandler);
             } else if (tile.equals(TILE_CARBON)) {
                 qs = new CarbonTile(mContext, this);
+            } else if (tile.equals(TILE_BATTERYSAVER)) {
+                qs = new BatterySaverTile(mContext, this);
             } else if (tile.equals(TILE_RINGER)) {
                 qs = new RingerModeTile(mContext, this);
+            } else if (tile.equals(TILE_POWERMENU)) {
+                qs = new PowerMenuTile(mContext, this);
             } else if (tile.equals(TILE_SYNC)) {
                 qs = new SyncTile(mContext, this);
             } else if (tile.equals(TILE_WIFIAP) && mobileDataSupported) {
