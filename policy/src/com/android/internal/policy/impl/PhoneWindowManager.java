@@ -493,7 +493,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     boolean mDreamingLockscreen;
     boolean mHomePressed;
     boolean mHomeConsumed;
-    
+
     boolean mHomeDoubleTapPending;
     boolean mMenuPressed;
     boolean mMenuConsumed;
@@ -1384,29 +1384,6 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 	mPowerMenuReceiver = new PowerMenuReceiver(context);
         mPowerMenuReceiver.registerSelf();
 
-        String deviceKeyHandlerLib = mContext.getResources().getString(
-                com.android.internal.R.string.config_deviceKeyHandlerLib);
-
-        String deviceKeyHandlerClass = mContext.getResources().getString(
-                com.android.internal.R.string.config_deviceKeyHandlerClass);
-
-        if (!deviceKeyHandlerLib.isEmpty() && !deviceKeyHandlerClass.isEmpty()) {
-            DexClassLoader loader =  new DexClassLoader(deviceKeyHandlerLib,
-                    new ContextWrapper(mContext).getCacheDir().getAbsolutePath(),
-                    null,
-                    ClassLoader.getSystemClassLoader());
-            try {
-                Class<?> klass = loader.loadClass(deviceKeyHandlerClass);
-                Constructor<?> constructor = klass.getConstructor(Context.class);
-                mDeviceKeyHandler = (DeviceKeyHandler) constructor.newInstance(
-                        mContext);
-                if(DEBUG) Slog.d(TAG, "Device key handler loaded");
-            } catch (Exception e) {
-                Slog.w(TAG, "Could not instantiate device key handler "
-                        + deviceKeyHandlerClass + " from class "
-                        + deviceKeyHandlerLib, e);
-            }
-        }
     }
 
     private void updateKeyAssignments() {
@@ -1416,11 +1393,11 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         final boolean noAssist = (mDeviceHardwareKeys & KEY_MASK_ASSIST) == 0;
         final boolean noAppSwitch = (mDeviceHardwareKeys & KEY_MASK_APP_SWITCH) == 0;
 
-        // Setup hardware keys
-        boolean keyRebindingDisabled = Settings.System.getIntForUser(
-                mContext.getContentResolver(),
-                Settings.System.HARDWARE_KEY_REBINDING, 0,
-                UserHandle.USER_CURRENT) == 0;
+	    // Setup hardware keys
+	    boolean keyRebindingDisabled = Settings.System.getIntForUser(
+	            mContext.getContentResolver(),
+	            Settings.System.HARDWARE_KEY_REBINDING, 0,
+	            UserHandle.USER_CURRENT) == 0;
 
         // Home button
         mPressOnHomeBehavior =
@@ -1432,7 +1409,6 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         mDoubleTapOnHomeBehavior =
                 HwKeyHelper.getDoubleTapOnHomeBehavior(
                         mContext, noHome || keyRebindingDisabled);
-
         // Menu button
         mPressOnMenuBehavior =
                 HwKeyHelper.getPressOnMenuBehavior(
