@@ -69,8 +69,6 @@ import android.os.PowerManager;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.SystemClock;
-import android.text.Editable;
-import android.text.TextWatcher;
 import android.os.UserHandle;
 import android.provider.AlarmClock;
 import android.provider.CalendarContract;
@@ -79,11 +77,12 @@ import android.provider.Settings;
 import android.service.notification.StatusBarNotification;
 import android.telephony.MSimTelephonyManager;
 import android.telephony.TelephonyManager;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.DisplayMetrics;
 import android.util.EventLog;
 import android.util.Log;
 import android.util.Pair;
-import android.util.Slog;
 import android.view.Display;
 import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
@@ -103,12 +102,12 @@ import android.view.animation.DecelerateInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.FrameLayout;
-import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TabHost;
 import android.widget.TabHost.TabSpec;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.android.internal.statusbar.StatusBarIcon;
 import com.android.internal.util.slim.ButtonConfig;
@@ -171,6 +170,7 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
     private static final int MSG_OPEN_QS_PANEL = 1003;
     private static final int MSG_FLIP_TO_NOTIFICATION_PANEL = 1004;
     private static final int MSG_FLIP_TO_QS_PANEL = 1005;
+    private static final int MSG_SMART_PULLDOWN = 1006;
     // 1020-1030 reserved for BaseStatusBar
 
     private static final boolean CLOSE_PANEL_WHEN_EMPTIED = true;
@@ -290,7 +290,6 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
     private int mNotificationHeaderHeight;
 
     private boolean mShowCarrierInPanel = false;
-    private boolean mNotificationShortcutsHideCarrier;
 
     private SignalClusterView mSignalClusterView;
     private MSimSignalClusterView mMSimSignalClusterView;
@@ -450,9 +449,6 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
                     Settings.System.QUICK_TILES_BG_ALPHA),
                     false, this, UserHandle.USER_ALL);
             resolver.registerContentObserver(Settings.System.getUriFor(
-                    Settings.System.NOTIFICATION_SHORTCUTS_HIDE_CARRIER),
-                    false, this, UserHandle.USER_ALL);
-            resolver.registerContentObserver(Settings.System.getUriFor(
                     Settings.System.LOCKSCREEN_USE_WIDGET_CONTAINER_CAROUSEL),
                     false, this, UserHandle.USER_ALL);
             resolver.registerContentObserver(Settings.System.getUriFor(
@@ -604,11 +600,6 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
             systemColor = Settings.System.getIntForUser(resolver,
                     Settings.System.SYSTEM_ICON_COLOR, -2, UserHandle.USER_CURRENT);
             updateBatteryIcons();
-            mNotificationShortcutsHideCarrier = Settings.System.getIntForUser(resolver,
-                    Settings.System.NOTIFICATION_SHORTCUTS_HIDE_CARRIER, 0, UserHandle.USER_CURRENT) != 0;
-            if (mCarrierLabel != null) {
-                toggleCarrierAndWifiLabelVisibility();
-            }
 
             updateCustomHeaderStatus();
 
@@ -638,8 +629,8 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
 
     private void updateBatteryIcons() {
         if (mBattery != null && mCircleBattery != null) {
-            mBattery.updateSettings();
-            mCircleBattery.updateSettings();
+            mBattery.updateSettings(false);
+            mCircleBattery.updateSettings(false);
         }
     }
 
@@ -780,11 +771,6 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
                 mRibbonQS.setupQuickSettings();
             }
         }
-    }
-
-    private void toggleCarrierAndWifiLabelVisibility() {
-        mShowCarrierInPanel = !mNotificationShortcutsHideCarrier;
-        mCarrierAndWifiView.setVisibility(mShowCarrierInPanel ? View.VISIBLE : View.INVISIBLE);
     }
 
     // ================================================================================
@@ -1000,10 +986,6 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
         setAreThereNotifications();
 
         // Other icons
-        mNotificationShortcutsHideCarrier = Settings.System.getIntForUser(mContext.getContentResolver(),
-                Settings.System.NOTIFICATION_SHORTCUTS_HIDE_CARRIER, 0, UserHandle.USER_CURRENT) != 0;
-        mCarrierAndWifiView = mStatusBarWindow.findViewById(R.id.carrier_wifi);
-        mWifiView = mStatusBarWindow.findViewById(R.id.wifi_view);
 
         if (MSimTelephonyManager.getDefault().isMultiSimEnabled()) {
             mMSimNetworkController = new MSimNetworkController(mContext);
@@ -1035,10 +1017,6 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
             if (DEBUG) Log.v(TAG, "carrierlabel=" + mCarrierLabel + " show=" +
                                     mShowCarrierInPanel + "operator label=" + mSubsLabel);
             if (mShowCarrierInPanel) {
-                mCarrierLabel.setVisibility((mCarrierAndWifiViewVisible && !mNotificationShortcutsHideCarrier) ? View.VISIBLE : View.INVISIBLE);
-                if (mNotificationShortcutsHideCarrier)
-                    mShowCarrierInPanel = false;
-
                 // for mobile devices, we always show mobile connection info here (SPN/PLMN)
                 // for other devices, we show whatever network is connected
                 if (mMSimNetworkController.hasMobileDataFeature()) {
@@ -1083,51 +1061,42 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
                         }});
                 }
             }
+    }
 
-            mCarrierLabel = (TextView)mStatusBarWindow.findViewById(R.id.carrier_label);
-            mWifiLabel = (TextView)mStatusBarWindow.findViewById(R.id.wifi_text);
-            mShowCarrierInPanel = (mCarrierLabel != null);
-            if (DEBUG) Log.v(TAG, "carrierlabel=" + mCarrierLabel + " show=" +
-                                                                  mShowCarrierInPanel);
-            if (mShowCarrierInPanel) {
-                mCarrierLabel.setVisibility((mCarrierAndWifiViewVisible && !mNotificationShortcutsHideCarrier) ? View.VISIBLE : View.INVISIBLE);
-                if (mNotificationShortcutsHideCarrier)
-                    mShowCarrierInPanel = false;
-
-                // for mobile devices, we always show mobile connection info here (SPN/PLMN)
-                // for other devices, we show whatever network is connected
-                if (mNetworkController.hasMobileDataFeature()) {
-                    mNetworkController.addMobileLabelView(mCarrierLabel);
-                } else {
-                    mNetworkController.addCombinedLabelView(mCarrierLabel);
+        mCarrierAndWifiView = mStatusBarWindow.findViewById(R.id.carrier_wifi);
+        mWifiView = mStatusBarWindow.findViewById(R.id.wifi_view);
+        mCarrierLabel = (TextView)mStatusBarWindow.findViewById(R.id.carrier_label);
+        mShowCarrierInPanel = (mCarrierLabel != null);
+        if (DEBUG) Log.v(TAG, "carrierlabel=" + mCarrierLabel + " show=" + mShowCarrierInPanel);
+        if (mShowCarrierInPanel) {
+            // for mobile devices, we always show mobile connection info here (SPN/PLMN)
+            // for other devices, we show whatever network is connected
+            if (mNetworkController.hasMobileDataFeature()) {
+                mNetworkController.addMobileLabelView(mCarrierLabel);
+            } else {
+                mNetworkController.addCombinedLabelView(mCarrierLabel);
+            }
+        }
+        mWifiLabel = (TextView)mStatusBarWindow.findViewById(R.id.wifi_text);
+        if (mWifiLabel != null) {
+            mNetworkController.addWifiLabelView(mWifiLabel);
+            mWifiLabel.addTextChangedListener(new TextWatcher() {
+                public void afterTextChanged(Editable s) {
                 }
+                public void beforeTextChanged(CharSequence s, int start, int count,
+                        int after) {
+                }
+                public void onTextChanged(CharSequence s, int start, int before,
+                        int count) {
+                    if (count > 0) {
+                        mWifiView.setVisibility(View.VISIBLE);
+                    } else {
+                        mWifiView.setVisibility(View.GONE);
+                    }
+                }
+            });
 
-                if (mWifiLabel != null) {
-                    mNetworkController.addWifiLabelView(mWifiLabel);
-
-                    mWifiLabel.addTextChangedListener(new TextWatcher() {
-
-                        public void afterTextChanged(Editable s) {
-                        }
-                        public void beforeTextChanged(CharSequence s, int start, int count,
-                                int after) {
-                        }
-                        public void onTextChanged(CharSequence s, int start, int before,
-                                int count) {
-                            if (Settings.System.getInt(mContext.getContentResolver(),
-                                    Settings.System.NOTIFICATION_SHOW_WIFI_SSID, 0) == 1 &&
-                                    count > 0) {
-                                mWifiView.setVisibility(View.VISIBLE);
-                            }
-                            else
-                            {
-                                mWifiView.setVisibility(View.GONE);
-                            }
-                        }
-
-                    });
-
-                    // set up the dynamic hide/show of the labels
+            // set up the dynamic hide/show of the labels
                     mPile.setOnSizeChangedListener(new OnSizeChangedListener() {
                         @Override
                         public void onSizeChanged(View view, int w, int h, int oldw, int oldh) {
@@ -1135,8 +1104,6 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
                         }
                     });
                 }
-            }
-        }
 
         // Quick Settings (where available, some restrictions apply)
         if (mHasSettingsPanel) {
@@ -1817,50 +1784,55 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
      * Listen for UI updates and refresh layout.
      */
     public void onUpdateUI() {
-        updateCarrierAndWifiLabelVisibility(true);
+        updateCarrierAndWifiLabelVisibility(false);
     }
 
     protected void updateCarrierAndWifiLabelVisibility(boolean force) {
-	if (!mShowCarrierInPanel || mCarrierAndWifiView == null) return;
-            if (SPEW) {
-                Slog.d(TAG, String.format("pileh=%d scrollh=%d carrierh=%d",
-                        mPile.getHeight(), mScrollView.getHeight(), mCarrierAndWifiViewHeight));
+        if (!mShowCarrierInPanel || mCarrierAndWifiView == null) {
+            return;
+        }
+        // The idea here is to only show the carrier label when there is enough room to see it,
+        // i.e. when there aren't enough notifications to fill the panel.
+        if (SPEW) {
+            Log.d(TAG, String.format("pileh=%d scrollh=%d carrierh=%d",
+                    mPile.getHeight(), mScrollView.getHeight(), mCarrierAndWifiViewHeight));
+        }
+
+        final boolean emergencyCallsShownElsewhere = mEmergencyCallLabel != null;
+        final boolean isEmergencyOnly = MSimTelephonyManager.getDefault().isMultiSimEnabled() ?
+             mMSimNetworkController.isEmergencyOnly() :
+             mNetworkController.isEmergencyOnly();
+
+        final boolean makeVisible =
+            !(emergencyCallsShownElsewhere && isEmergencyOnly)
+            && mPile.getHeight() <
+            (mNotificationPanel.getHeight() - mCarrierAndWifiViewHeight - mNotificationHeaderHeight)
+            && mScrollView.getVisibility() == View.VISIBLE;
+
+        if (force || mCarrierAndWifiViewVisible != makeVisible) {
+            mCarrierAndWifiViewVisible = makeVisible;
+            if (DEBUG) {
+                Log.d(TAG, "making carrier label " + (makeVisible?"visible":"invisible"));
             }
-
-            final boolean emergencyCallsShownElsewhere = mEmergencyCallLabel != null;
-            final boolean isEmergencyOnly = MSimTelephonyManager.getDefault().isMultiSimEnabled() ?
-                mMSimNetworkController.isEmergencyOnly() :
-                mNetworkController.isEmergencyOnly();
-
-            final boolean makeVisible =
-                !(emergencyCallsShownElsewhere && isEmergencyOnly)
-                && mPile.getHeight() < (mNotificationPanel.getHeight() - mCarrierAndWifiViewHeight)
-                && mScrollView.getVisibility() == View.VISIBLE;
-
-            if (force || mCarrierAndWifiViewVisible != makeVisible) {
-                mCarrierAndWifiViewVisible = makeVisible;
-                if (DEBUG) {
-                    Slog.d(TAG, "making carrier label " + (makeVisible?"visible":"invisible"));
-                }
-                mCarrierAndWifiView.animate().cancel();
-                if (makeVisible) {
-                    mCarrierAndWifiView.setVisibility(View.VISIBLE);
-                }
-                mCarrierAndWifiView.animate()
-                    .alpha(makeVisible ? 1f : 0f)
-                    //.setStartDelay(makeVisible ? 500 : 0)
-                    //.setDuration(makeVisible ? 750 : 100)
-                    .setDuration(150)
-                    .setListener(makeVisible ? null : new AnimatorListenerAdapter() {
-                        @Override
-                        public void onAnimationEnd(Animator animation) {
-                            if (!mCarrierAndWifiViewVisible) { // race
-                                mCarrierAndWifiView.setVisibility(View.INVISIBLE);
-                                mCarrierAndWifiView.animate().alpha(0f);
-                            }
-                        }
-                    })
-                    .start();
+            mCarrierAndWifiView.animate().cancel();
+            if (makeVisible) {
+                mCarrierAndWifiView.setVisibility(View.VISIBLE);
+            }
+            mCarrierAndWifiView.animate()
+                .alpha(makeVisible ? 1f : 0f)
+                //.setStartDelay(makeVisible ? 500 : 0)
+                //.setDuration(makeVisible ? 750 : 100)
+                .setDuration(150)
+                .setListener(makeVisible ? null : new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        if (!mCarrierAndWifiViewVisible) { // race
+                            mCarrierAndWifiView.setVisibility(View.INVISIBLE);
+                            mCarrierAndWifiView.animate().alpha(0f);
+                          }
+                    }
+                })
+                .start();
         }
     }
 
@@ -1936,7 +1908,7 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
                 .start();
         }
 
-        updateCarrierAndWifiLabelVisibility(false);
+        updateCarrierAndWifiLabelVisibility(true);
     }
 
     public void showClock(boolean show) {
@@ -2160,7 +2132,7 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
         if (mNavigationBarView != null)
             mNavigationBarView.setSlippery(true);
 
-        updateCarrierAndWifiLabelVisibility(true);
+        updateCarrierAndWifiLabelVisibility(false);
 
         updateExpandedViewPos(EXPANDED_LEAVE_ALONE);
 
@@ -2914,6 +2886,27 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
         Settings.System.putInt(mContext.getContentResolver(),
                 Settings.System.ACCELEROMETER_ROTATION,
                 enabled ? 1 : 0);
+    }
+    public void toggleSmartPulldown() {
+        int smartPulldownMode = Settings.System.getIntForUser(
+                mContext.getContentResolver(), Settings.System.QS_SMART_PULLDOWN,
+                0, UserHandle.USER_CURRENT);
+        if (smartPulldownMode == 1 && !hasClearableNotifications()) {
+            toggleQSShade();
+        } else if (smartPulldownMode == 2 && !hasVisibleNotifications()) {
+            toggleQSShade();
+        } else if (smartPulldownMode == 3 && !hasVisibleNotifications()
+                && !hasClearableNotifications()) {
+            toggleQSShade();
+        } else if (smartPulldownMode == 0) {
+            Toast.makeText(mContext,
+                    R.string.smart_pulldown_disabled,
+                    Toast.LENGTH_LONG).show();
+        } else {
+            toggleNotificationShade();
+        }
+        mHandler.removeMessages(MSG_SMART_PULLDOWN);
+        mHandler.sendEmptyMessage(MSG_SMART_PULLDOWN);
     }
 
     private int computeBarMode(int oldVis, int newVis, BarTransitions transitions,

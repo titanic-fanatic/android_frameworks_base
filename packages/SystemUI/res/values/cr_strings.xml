@@ -130,6 +130,9 @@
     <string name="quick_settings_quick_record_play">Playing...</string>
     <string name="quick_settings_bluetooth_multi_label">%1$d connected</string>
 
+    <!-- Title shown in recents popup for showing app in floating mode -->
+    <string name="status_bar_recent_floating_item_title">Floating mode</string>
+
     <!-- Expanded desktop strings break the rules a bit - the icon identifies the feature, the string indicates current state -->
     <string name="quick_settings_expanded_desktop">Expanded</string>
     <string name="quick_settings_expanded_desktop_off">Normal</string>
@@ -175,6 +178,9 @@
     <string name="screenshot_notification_delete">Delete</string>
     <string name="screenshot_delete_confirmation">Screenshot deleted.</string>
     <string name="screenshot_toast">Screenshot in %1$d seconds</string>
+
+    <!-- Title shown in notification popup for launching notification in floating mode -->
+    <string name="status_bar_notification_floating_item_title">Floating mode</string>
 
     <!-- Development shortcut -->
     <string name="advanced_dev_option_wipe_app">Wipe app data</string>
@@ -242,5 +248,8 @@
     <string name="sim_slot" translatable="false">1</string>
     <string name="sim_slot_2" translatable="false">2</string>
     <string name="sim_slot_3" translatable="false">3</string>
+
+    <!-- Smart PullDown Warning -->
+    <string name="smart_pulldown_disabled">Smart pulldown is disabled</string>
 
 </resources>

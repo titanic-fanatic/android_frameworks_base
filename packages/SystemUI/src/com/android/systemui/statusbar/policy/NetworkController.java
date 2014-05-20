@@ -1167,8 +1167,6 @@ public class NetworkController extends BroadcastReceiver implements DemoMode {
         String mobileLabel = "";
         int N;
         final boolean emergencyOnly = isEmergencyOnly();
-        final String customLabel = Settings.System.getString(mContext.getContentResolver(),
-                Settings.System.CUSTOM_CARRIER_LABEL);
 
         if (!mHasMobileDataFeature) {
             mDataSignalIconId = mPhoneSignalIconId = 0;
@@ -1330,15 +1328,20 @@ public class NetworkController extends BroadcastReceiver implements DemoMode {
             }
         }
 
-        if (customLabel != null && customLabel.length() > 0) {
-            combinedLabel = customLabel;
-            mobileLabel = customLabel;
-        }
-
         if (!mAirplaneMode && mSimState == IccCardConstants.State.ABSENT) {
             // look again; your radios are now sim cards
             mPhoneSignalIconId = mDataSignalIconId = mDataTypeIconId = mQSDataTypeIconId = 0;
             mQSPhoneSignalIconId = 0;
+        }
+
+        final String customLabel = Settings.System.getString(mContext.getContentResolver(),
+                Settings.System.NOTIFICATION_CUSTOM_CARRIER_LABEL);
+
+        if (customLabel != null && customLabel.length() > 0) {
+            if (combinedLabel.equals(mobileLabel)) {
+                combinedLabel = customLabel;
+            }
+            mobileLabel = customLabel;
         }
 
         if (DEBUG) {

@@ -2685,6 +2685,14 @@ public class Intent implements Parcelable, Cloneable {
     public static final String ACTION_GLOBAL_BUTTON = "android.intent.action.GLOBAL_BUTTON";
 
     /**
+     * Broadcast Action: let apps know when a package is going to be removed.  This is useful
+     * for switching to default theme if the package being removed is the current applied theme.
+     * @hide
+     */
+    public static final String ACTION_PACKAGE_BEING_REMOVED =
+            "android.intent.action.PACKAGE_BEING_REMOVED";
+
+    /**
      * Activity Action: Allow the user to select and return one or more existing
      * documents. When invoked, the system will display the various
      * {@link DocumentsProvider} instances installed on the device, letting the
@@ -3682,6 +3690,13 @@ public class Intent implements Parcelable, Cloneable {
      * saw.   This can only be used in conjunction with {@link #FLAG_ACTIVITY_NEW_TASK}.
      */
     public static final int FLAG_ACTIVITY_TASK_ON_HOME = 0X00004000;
+    /**
+     * If set, this intent will always match start up as a floating window
+     * in multi window scenarios.
+     *
+     * @hide
+     */
+    public static final int FLAG_FLOATING_WINDOW = 0x00002000;
     /**
      * If set, when sending a broadcast only registered receivers will be
      * called -- no BroadcastReceiver components will be launched.
