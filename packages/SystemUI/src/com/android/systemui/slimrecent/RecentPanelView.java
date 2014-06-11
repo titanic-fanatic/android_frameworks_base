@@ -78,6 +78,10 @@ public class RecentPanelView {
     public static final int EXPANDED_STATE_COLLAPSED = 2;
     public static final int EXPANDED_STATE_BY_SYSTEM = 4;
 
+    public static final int EXPANDED_MODE_AUTO    = 0;
+    private static final int EXPANDED_MODE_ALWAYS = 1;
+    private static final int EXPANDED_MODE_NEVER  = 2;
+
     private static final int MENU_APP_DETAILS_ID   = 0;
     private static final int MENU_APP_PLAYSTORE_ID = 1;
     private static final int MENU_APP_AMAZON_ID    = 2;
@@ -113,6 +117,7 @@ public class RecentPanelView {
 
     private int mMainGravity;
     private float mScaleFactor;
+    private int mExpandedMode = EXPANDED_MODE_AUTO;
 
     private PopupMenu mPopup;
 
@@ -406,18 +411,41 @@ public class RecentPanelView {
     protected boolean removeAllApplications() {
         final ActivityManager am = (ActivityManager)
                 mContext.getSystemService(Context.ACTIVITY_SERVICE);
-        for (TaskDescription td : mTasks) {
-            // Kill all recent apps.
+        boolean hasFavorite = false;
+        final int oldTaskSize = mTasks.size() - 1;
+        for (int i = oldTaskSize; i >= 0; i--) {
+            TaskDescription td = mTasks.get(i);
+            // User favorites are not removed.
+            if (td.getIsFavorite()) {
+                hasFavorite = true;
+                continue;
+            }
+            // Remove from task stack.
             if (am != null) {
                 am.removeTask(td.persistentTaskId, ActivityManager.REMOVE_TASK_KILL_PROCESS);
-                removeApplicationBitmapCacheAndExpandedState(td);
+            }
+            // Remove from task list.
+            mTasks.remove(td);
+            // Remove the card.
+            removeRecentCard(td);
+            // Notify ArrayAdapter about the change.
+            mCardArrayAdapter.notifyDataSetChanged();
+            // Remove bitmap and expanded state.
+            removeApplicationBitmapCacheAndExpandedState(td);
+            // Correct global task size.
+            mTasksSize--;
+        }
+        return !hasFavorite;
+    }
+
+    private void removeRecentCard(TaskDescription td) {
+        for (int i = 0; i < mCards.size(); i++) {
+            RecentCard card = (RecentCard) mCards.get(i);
+            if (card != null && card.getPersistentTaskId() == td.persistentTaskId) {
+                mCards.remove(i);
+                return;
             }
         }
-        // Clear all relevant values.
-        mTasks.clear();
-        mCards.clear();
-        mTasksSize = 0;
-        return true;
     }
 
     /**
@@ -602,6 +630,7 @@ public class RecentPanelView {
         int firstItems = 0;
         final int firstExpandedItems =
                 mContext.getResources().getInteger(R.integer.expanded_items_default);
+        boolean loadOneExcluded = true;
         // Get current task list. We do not need to do it in background. We only load MAX_TASKS.
         for (int i = 0, index = 0; i < numTasks && (index < MAX_TASKS); ++i) {
             if (mCancelledByUser) {
@@ -618,14 +647,17 @@ public class RecentPanelView {
 
             // Never load the current home activity.
             if (isCurrentHomeActivity(intent.getComponent(), homeInfo)) {
+                loadOneExcluded = false;
                 continue;
             }
 
             // Don't load excluded activities.
-            if ((recentInfo.baseIntent.getFlags()
+            if (!loadOneExcluded && (recentInfo.baseIntent.getFlags()
                     & Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS) != 0) {
                 continue;
             }
+
+            loadOneExcluded = false;
 
             TaskDescription item = createTaskDescription(recentInfo.id,
                     recentInfo.persistentId, recentInfo.baseIntent,
@@ -645,18 +677,25 @@ public class RecentPanelView {
                     mFirstTask = item;
                 } else {
                     // FirstExpandedItems value forces to show always the app screenshot
-                    // if the old state is not known.
-                    // All other items we check if they were expanded from the user
-                    // in last known recent app list and restore the state.
+                    // if the old state is not known and the user has set expanded mode to auto.
+                    // On all other items we check if they were expanded from the user
+                    // in last known recent app list and restore the state. This counts as well
+                    // if expanded mode is always or never.
                     int oldState = getExpandedState(item);
+                    if ((oldState & EXPANDED_STATE_BY_SYSTEM) != 0) {
+                        oldState &= ~EXPANDED_STATE_BY_SYSTEM;
+                    }
                     if (DEBUG) Log.v(TAG, "old expanded state = " + oldState);
                     if (firstItems < firstExpandedItems) {
-                        item.setExpandedState(oldState | EXPANDED_STATE_BY_SYSTEM);
+                        if (mExpandedMode != EXPANDED_MODE_NEVER) {
+                            oldState |= EXPANDED_STATE_BY_SYSTEM;
+                        }
+                        item.setExpandedState(oldState);
                         // The first tasks are always added to the task list.
                         mTasks.add(item);
                     } else {
-                        if ((oldState & EXPANDED_STATE_BY_SYSTEM) != 0) {
-                            oldState &= ~EXPANDED_STATE_BY_SYSTEM;
+                        if (mExpandedMode == EXPANDED_MODE_ALWAYS) {
+                            oldState |= EXPANDED_STATE_BY_SYSTEM;
                         }
                         item.setExpandedState(oldState);
                         // Favorite tasks are added next. Non favorite
@@ -756,37 +795,6 @@ public class RecentPanelView {
         }
     }
 
-    /**
-     * Third loading stage. Container is now visible,
-     * tasks were completly loaded, visible elements
-     * were loaded as well. So let us trigger for all invisible
-     * views the asynctask loaders. This triggers bitmap load
-     * for collapsed expanded cards and as well app icon load
-     * for all non visible cards on the screen.
-     * We are doing this here to avoid peformance issues
-     * on scrolling. Recents screen has a max entry of 21
-     * tasks so this is a good approach to load now all
-     * user information without having any downsides.
-     *
-     */
-    protected void updateInvisibleCards() {
-        RecentCard card;
-        final int size = mCards.size();
-        // We set here an internal value
-        // to prepare force load of the task
-        // thumbnails.
-        for (int i = 0; i < size; i++) {
-            card = (RecentCard) mCards.get(i);
-            card.forceSetLoadExpandedContent();
-        }
-        // Actually trigger on all cards the load if
-        // the content was not loaded allready. This
-        // decisision is done in the cards themselves.
-        for (int i = size - 1; i >= 0; i--) {
-            mCardArrayAdapter.getView(i, null, mListView);
-        }
-    }
-
     protected void setCancelledByUser(boolean cancelled) {
         mCancelledByUser = cancelled;
         if (cancelled) {
@@ -819,6 +827,28 @@ public class RecentPanelView {
 
     protected void setScaleFactor(float factor) {
         mScaleFactor = factor;
+    }
+
+    protected void setExpandedMode(int mode) {
+        mExpandedMode = mode;
+    }
+
+    protected boolean hasFavorite() {
+        for (TaskDescription td : mTasks) {
+            if (td.getIsFavorite()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    protected boolean hasClearableTasks() {
+        for (TaskDescription td : mTasks) {
+            if (!td.getIsFavorite()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
