@@ -45,9 +45,7 @@ import android.os.Message;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 import android.os.ServiceManager;
-import android.util.DisplayMetrics;
 import android.util.Log;
-import android.view.WindowManager;
 import android.view.WindowManagerGlobal;
 
 import java.io.BufferedInputStream;
@@ -67,6 +65,8 @@ public class WallpaperManager {
     private static boolean DEBUG = false;
     private float mWallpaperXStep = -1;
     private float mWallpaperYStep = -1;
+    private int mWallpaperXOverscroll = -1;
+    private int mWallpaperYOverscroll = -1;
 
     /**
      * Activity Action: Show settings for choosing wallpaper. Do not use directly to construct
@@ -294,9 +294,8 @@ public class WallpaperManager {
 
                     try {
                         BitmapFactory.Options options = new BitmapFactory.Options();
-                        Bitmap bm = BitmapFactory.decodeFileDescriptor(
+                        return BitmapFactory.decodeFileDescriptor(
                                 fd.getFileDescriptor(), null, options);
-                        return generateBitmap(context, bm, width, height);
                     } catch (OutOfMemoryError e) {
                         Log.w(TAG, "Can't decode file", e);
                     } finally {
@@ -323,8 +322,7 @@ public class WallpaperManager {
 
                     try {
                         BitmapFactory.Options options = new BitmapFactory.Options();
-                        Bitmap bm = BitmapFactory.decodeStream(is, null, options);
-                        return generateBitmap(context, bm, width, height);
+                        return BitmapFactory.decodeStream(is, null, options);
                     } catch (OutOfMemoryError e) {
                         Log.w(TAG, "Can't decode stream", e);
                     } finally {
@@ -950,12 +948,47 @@ public class WallpaperManager {
     public void setWallpaperOffsets(IBinder windowToken, float xOffset, float yOffset) {
         try {
             //Log.v(TAG, "Sending new wallpaper offsets from app...");
-            WindowManagerGlobal.getWindowSession().setWallpaperPosition(
-                    windowToken, xOffset, yOffset, mWallpaperXStep, mWallpaperYStep);
+            WindowManagerGlobal.getWindowSession().setWallpaperPositionOverscroll(
+                    windowToken, xOffset, yOffset, mWallpaperXStep, mWallpaperYStep,
+                    -1, -1, mWallpaperXOverscroll, mWallpaperYOverscroll);
             //Log.v(TAG, "...app returning after sending offsets!");
         } catch (RemoteException e) {
             // Ignore.
         }
+    }
+
+    /**
+     * Set the position of the current wallpaper within any larger space, when
+     * that wallpaper is visible behind the given window.  The X and Y offsets
+     * are floating point numbers ranging from 0 to 1, representing where the
+     * wallpaper should be positioned within the range specified by setWallpaperOverscroll.
+     *
+     * @param windowToken The window who these offsets should be associated
+     * with, as returned by {@link android.view.View#getWindowToken()
+     * View.getWindowToken()}.
+     * @param xOverscrollOffset The overscroll offset along the X dimension, from 0 to 1.
+     * @param yOverscrollOffset The overscroll offset along the Y dimension, from 0 to 1.
+     *
+     * @hide
+     */
+    public void setWallpaperOverscrollOffsets(IBinder windowToken, float xOverscrollOffset,
+            float yOverscrollOffset) {
+        try {
+            //Log.v(TAG, "Sending new wallpaper offsets from app...");
+            WindowManagerGlobal.getWindowSession().setWallpaperPositionOverscroll(
+                    windowToken, -1, -1, mWallpaperXStep, mWallpaperYStep,
+                    xOverscrollOffset, yOverscrollOffset, mWallpaperXOverscroll,
+                    mWallpaperYOverscroll);
+            //Log.v(TAG, "...app returning after sending offsets!");
+        } catch (RemoteException e) {
+            // Ignore.
+        }
+    }
+
+    /** @hide */
+    public void setWallpaperOverscroll(int xOverscroll, int yOverscroll) {
+        mWallpaperXOverscroll = xOverscroll;
+        mWallpaperYOverscroll = yOverscroll;
     }
 
     /**
@@ -970,7 +1003,29 @@ public class WallpaperManager {
         mWallpaperXStep = xStep;
         mWallpaperYStep = yStep;
     }
-    
+
+    /** @hide */
+    public int getLastWallpaperX() {
+        try {
+            return WindowManagerGlobal.getWindowSession().getLastWallpaperX();
+        } catch (RemoteException e) {
+            // Ignore.
+        }
+
+        return -1;
+    }
+
+    /** @hide */
+    public int getLastWallpaperY() {
+        try {
+            return WindowManagerGlobal.getWindowSession().getLastWallpaperY();
+        } catch (RemoteException e) {
+            // Ignore.
+        }
+
+        return -1;
+    }
+
     /**
      * Send an arbitrary command to the current active wallpaper.
      * 
@@ -1028,63 +1083,5 @@ public class WallpaperManager {
      */
     public void clear() throws IOException {
         setResource(com.android.internal.R.drawable.default_wallpaper);
-    }
-    
-    static Bitmap generateBitmap(Context context, Bitmap bm, int width, int height) {
-        if (bm == null) {
-            return null;
-        }
-
-        WindowManager wm = (WindowManager)context.getSystemService(Context.WINDOW_SERVICE);
-        DisplayMetrics metrics = new DisplayMetrics();
-        wm.getDefaultDisplay().getMetrics(metrics);
-        bm.setDensity(metrics.noncompatDensityDpi);
-
-        if (width <= 0 || height <= 0
-                || (bm.getWidth() == width && bm.getHeight() == height)) {
-            return bm;
-        }
-
-        // This is the final bitmap we want to return.
-        try {
-            Bitmap newbm = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-            newbm.setDensity(metrics.noncompatDensityDpi);
-
-            Canvas c = new Canvas(newbm);
-            Rect targetRect = new Rect();
-            targetRect.right = bm.getWidth();
-            targetRect.bottom = bm.getHeight();
-
-            int deltaw = width - targetRect.right;
-            int deltah = height - targetRect.bottom;
-
-            if (deltaw > 0 || deltah > 0) {
-                // We need to scale up so it covers the entire area.
-                float scale;
-                if (deltaw > deltah) {
-                    scale = width / (float)targetRect.right;
-                } else {
-                    scale = height / (float)targetRect.bottom;
-                }
-                targetRect.right = (int)(targetRect.right*scale);
-                targetRect.bottom = (int)(targetRect.bottom*scale);
-                deltaw = width - targetRect.right;
-                deltah = height - targetRect.bottom;
-            }
-
-            targetRect.offset(deltaw/2, deltah/2);
-
-            Paint paint = new Paint();
-            paint.setFilterBitmap(true);
-            paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC));
-            c.drawBitmap(bm, null, targetRect, paint);
-
-            bm.recycle();
-            c.setBitmap(null);
-            return newbm;
-        } catch (OutOfMemoryError e) {
-            Log.w(TAG, "Can't generate default bitmap", e);
-            return bm;
-        }
     }
 }

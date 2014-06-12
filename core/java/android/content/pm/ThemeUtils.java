@@ -67,6 +67,7 @@ public class ThemeUtils {
     public static final String IDMAP_SUFFIX = "@idmap";
     public static final String COMMON_RES_SUFFIX = ".common";
     public static final String COMMON_RES_TARGET = "common";
+    public static final String ICON_HASH_FILENAME = "hash";
 
     // path to external theme resources, i.e. bootanimation.zip
     public static final String SYSTEM_THEME_PATH = "/data/system/theme";
@@ -147,6 +148,10 @@ public class ThemeUtils {
 
     public static String getIconPackDir(String pkgName) {
       return IDMAP_PREFIX + pkgName;
+    }
+
+    public static String getIconHashFile(String pkgName) {
+        return getIconPackDir(pkgName) + File.separator  +  ICON_HASH_FILENAME;
     }
 
     public static String getIconPackApkPath(String pkgName) {
@@ -490,6 +495,12 @@ public class ThemeUtils {
         IntentFilter filter = new IntentFilter(ACTION_THEME_CHANGED);
 
         context.registerReceiver(receiver, filter);
+    }
+
+    public static String getWallpaperPath(AssetManager assetManager) throws IOException {
+        String[] assets = assetManager.list("wallpapers");
+        if (assets == null || assets.length == 0) return null;
+        return "wallpapers/" + assets[0];
     }
 
     public static String getDefaultThemePackageName(Context context) {

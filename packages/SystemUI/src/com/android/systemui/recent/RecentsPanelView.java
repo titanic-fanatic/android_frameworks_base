@@ -22,6 +22,7 @@ import android.animation.TimeInterpolator;
 import android.app.ActivityManager;
 import android.app.ActivityManagerNative;
 import android.app.ActivityOptions;
+import android.app.INotificationManager;
 import android.app.TaskStackBuilder;
 import android.app.admin.DevicePolicyManager;
 import android.content.ActivityNotFoundException;
@@ -45,6 +46,7 @@ import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.RemoteException;
+import android.os.ServiceManager;
 import android.os.UserHandle;
 import android.provider.Settings;
 import android.util.AttributeSet;
@@ -69,6 +71,7 @@ import android.widget.ImageView;
 import android.widget.ImageView.ScaleType;
 import android.widget.PopupMenu;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.android.internal.util.MemInfoReader;
 import com.android.systemui.R;
@@ -90,7 +93,6 @@ public class RecentsPanelView extends FrameLayout implements OnItemClickListener
     private PopupMenu mPopup;
     private View mRecentsScrim;
     private View mRecentsNoApps;
-    //private View mRecentsRamBar;
     private RecentsScrollView mRecentsContainer;
 
     private boolean mShowing;
@@ -109,19 +111,18 @@ public class RecentsPanelView extends FrameLayout implements OnItemClickListener
     private boolean mFitThumbnailToXY;
     private int mRecentItemLayoutId;
     private boolean mHighEndGfx;
+
     private ImageView mClearAllRecents;
     private CircleMemoryMeter mRamCircle;
-    private int ramCircleStatus = Constants.RAM_CIRCLE_OFF;
-
-    private LinearColorBar mRamUsageBar;
     private boolean mUpdateMemoryIndicator;
-
+    private LinearColorBar mRamUsageBar;
     private long mFreeMemory;
     private long mTotalMemory;
     private long mCachedMemory;
     private long mActiveMemory;
 
     private RecentsActivity mRecentsActivity;
+    private INotificationManager mNotificationManager;
 
     TextView mUsedMemText;
     TextView mFreeMemText;
@@ -397,13 +398,13 @@ public class RecentsPanelView extends FrameLayout implements OnItemClickListener
     }
 
     private void updateRamCircle() {
-        ramCircleStatus = Settings.System.getInt(mContext.getContentResolver(),
+        int mRamCircleStatus = Settings.System.getInt(mContext.getContentResolver(),
                 Settings.System.RAM_CIRCLE, Constants.RAM_CIRCLE_OFF);
-        if (ramCircleStatus != Constants.RAM_CIRCLE_OFF) {
-            mRamCircle.setVisibility(View.VISIBLE);
+
+        if (mRamCircleStatus != Constants.RAM_CIRCLE_OFF && mRamCircle != null) {
             FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams)
                     mRamCircle.getLayoutParams();
-            switch (ramCircleStatus) {
+            switch (mRamCircleStatus) {
                 case Constants.RAM_CIRCLE_TOP_LEFT:
                     layoutParams.gravity = Gravity.TOP | Gravity.LEFT;
                     break;
@@ -418,21 +419,22 @@ public class RecentsPanelView extends FrameLayout implements OnItemClickListener
                     break;
             }
             mRamCircle.setLayoutParams(layoutParams);
+            mRamCircle.setVisibility(View.VISIBLE);
             mUpdateMemoryIndicator = true;
-        } else {
+        } else if (mRamCircle != null) {
             mRamCircle.setVisibility(View.GONE);
             mUpdateMemoryIndicator = false;
         }
     }
 
     private void updateClearButton() {
-        int clearAllButton = Settings.System.getInt(mContext.getContentResolver(),
+        int mClearAllStatus = Settings.System.getInt(mContext.getContentResolver(),
                 Settings.System.CLEAR_RECENTS_BUTTON, Constants.CLEAR_ALL_BUTTON_BOTTOM_RIGHT);
 
-        if (clearAllButton != Constants.CLEAR_ALL_BUTTON_OFF) {
-            mClearAllRecents.setVisibility(noApps ? View.GONE : View.VISIBLE);
-            FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams)mClearAllRecents.getLayoutParams();
-             switch (clearAllButton) {
+        if (mClearAllStatus != Constants.CLEAR_ALL_BUTTON_OFF && mClearAllRecents != null) {
+            FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams)
+                    mClearAllRecents.getLayoutParams();
+            switch (mClearAllStatus) {
                 case Constants.CLEAR_ALL_BUTTON_TOP_LEFT:
                     layoutParams.gravity = Gravity.TOP | Gravity.LEFT;
                     break;
@@ -448,7 +450,8 @@ public class RecentsPanelView extends FrameLayout implements OnItemClickListener
                     break;
             }
             mClearAllRecents.setLayoutParams(layoutParams);
-        } else {
+            mClearAllRecents.setVisibility(noApps ? View.GONE : View.VISIBLE);
+        } else if (mClearAllRecents != null) {
             mClearAllRecents.setVisibility(View.GONE);
         }
     }
@@ -545,6 +548,7 @@ public class RecentsPanelView extends FrameLayout implements OnItemClickListener
         mRecentsScrim = findViewById(R.id.recents_bg_protect);
         mRecentsNoApps = findViewById(R.id.recents_no_apps);
         mRamCircle = (CircleMemoryMeter) findViewById(R.id.circle_meter);
+        mRamUsageBar = (LinearColorBar) findViewById(R.id.ram_usage_bar);
 
         mClearAllRecents = (ImageView) findViewById(R.id.recents_clear_all);
         if (mClearAllRecents != null){
@@ -874,11 +878,11 @@ public class RecentsPanelView extends FrameLayout implements OnItemClickListener
                     mContext.getString(R.string.accessibility_recents_item_dismissed, ad.getLabel()));
             sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_SELECTED);
             setContentDescription(null);
-            if (mUpdateMemoryIndicator) {
-                mRamCircle.updateMemoryInfo();
-            }
         }
         updateRamBar();
+        if (mUpdateMemoryIndicator) {
+            mRamCircle.updateMemoryInfo();
+        }
     }
 
     private void startApplicationDetailsActivity(String packageName) {
@@ -904,6 +908,11 @@ public class RecentsPanelView extends FrameLayout implements OnItemClickListener
         thumbnailView.setSelected(true);
         final PopupMenu popup =
             new PopupMenu(mContext, anchorView == null ? selectedView : anchorView);
+        // initialize if null
+        if (mNotificationManager == null) {
+            mNotificationManager = INotificationManager.Stub.asInterface(
+                    ServiceManager.getService(Context.NOTIFICATION_SERVICE));
+        }
         mPopup = popup;
         popup.getMenuInflater().inflate(R.menu.recent_popup_menu, popup.getMenu());
 
@@ -975,11 +984,32 @@ public class RecentsPanelView extends FrameLayout implements OnItemClickListener
                     ViewHolder viewHolder = (ViewHolder) selectedView.getTag();
                     if (viewHolder != null) {
                         final TaskDescription ad = viewHolder.taskDescription;
-                        dismissAndGoBack();
-                        Intent intent = ad.intent;
-                        intent.setFlags(Intent.FLAG_FLOATING_WINDOW
-                                | Intent.FLAG_ACTIVITY_NEW_TASK);
-                        getContext().startActivity(intent);
+                        String currentViewPackage = ad.packageName;
+                        boolean allowed = true; // default on
+                        try {
+                            // preloaded apps are added to the blacklist array when is recreated, handled in the notification manager
+                            allowed = mNotificationManager.isPackageAllowedForFloatingMode(currentViewPackage);
+                        } catch (android.os.RemoteException ex) {
+                            // System is dead
+                        }
+                        if (!allowed) {
+                            dismissAndGoBack();
+                            String text = mContext.getResources().getString(R.string.floating_mode_blacklisted_app);
+                            int duration = Toast.LENGTH_LONG;
+                            Toast.makeText(mContext, text, duration).show();
+                            return true;
+                        } else {
+                            dismissAndGoBack();
+                        }
+                        selectedView.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                Intent intent = ad.intent;
+                                intent.setFlags(Intent.FLAG_FLOATING_WINDOW
+                                        | Intent.FLAG_ACTIVITY_NEW_TASK);
+                                mContext.startActivity(intent);
+                            }
+                        });
                     }
                 } else {
                     return false;
@@ -1024,10 +1054,8 @@ public class RecentsPanelView extends FrameLayout implements OnItemClickListener
     }
 
     private void updateRamBar() {
-        mRamUsageBar = (LinearColorBar) findViewById(R.id.ram_usage_bar);
-
-        int mRamBarMode = (Settings.System.getInt(mContext.getContentResolver(),
-                             Settings.System.RECENTS_RAM_BAR_MODE, 0));
+        int mRamBarMode = Settings.System.getInt(mContext.getContentResolver(),
+                Settings.System.RECENTS_RAM_BAR_MODE, 0);
 
         if (mRamBarMode != 0 && mRamUsageBar != null) {
             long usedMem = 0;
@@ -1079,7 +1107,7 @@ public class RecentsPanelView extends FrameLayout implements OnItemClickListener
                         ActivityManagerNative.getDefault().dismissKeyguardOnNextActivity();
                     } catch (RemoteException e) {
                     }
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                             | Intent.FLAG_ACTIVITY_MULTIPLE_TASK
                             | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
                             | Intent.FLAG_ACTIVITY_NO_HISTORY);

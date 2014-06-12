@@ -449,8 +449,15 @@ public class WindowManagerService extends IWindowManager.Stub
     int mRotation = 0;
     int mForcedAppOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
     boolean mAltOrientation = false;
-    ArrayList<IRotationWatcher> mRotationWatchers
-            = new ArrayList<IRotationWatcher>();
+    class RotationWatcher {
+        IRotationWatcher watcher;
+        IBinder.DeathRecipient dr;
+        RotationWatcher(IRotationWatcher w, IBinder.DeathRecipient d) {
+            watcher = w;
+            dr = d;
+        }
+    }
+    ArrayList<RotationWatcher> mRotationWatchers = new ArrayList<RotationWatcher>();
     int mDeferredRotationPauseCount;
 
     int mSystemDecorLayer = 0;
@@ -533,6 +540,10 @@ public class WindowManagerService extends IWindowManager.Stub
     float mLastWallpaperY = -1;
     float mLastWallpaperXStep = -1;
     float mLastWallpaperYStep = -1;
+    float mlastWallpaperOverscrollX = -1;
+    float mlastWallpaperOverscrollY = -1;
+    int mLastWallpaperOverscrollXMax = -1;
+    int mLastWallpaperOverscrollYMax = -1;
     // This is set when we are waiting for a wallpaper to tell us it is done
     // changing its scroll position.
     WindowState mWaitingOnWallpaper;
@@ -1826,6 +1837,18 @@ public class WindowManagerService extends IWindowManager.Stub
                 mLastWallpaperY = mWallpaperTarget.mWallpaperY;
                 mLastWallpaperYStep = mWallpaperTarget.mWallpaperYStep;
             }
+            if (mWallpaperTarget.mWallpaperXOverscrollMax >= 0) {
+                mLastWallpaperOverscrollXMax = mWallpaperTarget.mWallpaperXOverscrollMax;
+            }
+            if (mWallpaperTarget.mWallpaperYOverscrollMax >= 0) {
+                mLastWallpaperOverscrollYMax = mWallpaperTarget.mWallpaperYOverscrollMax;
+            }
+            if (mWallpaperTarget.mWallpaperXOverscroll >= 0) {
+                mlastWallpaperOverscrollX = mWallpaperTarget.mWallpaperXOverscroll;
+            }
+            if (mWallpaperTarget.mWallpaperYOverscroll >= 0) {
+                mlastWallpaperOverscrollY = mWallpaperTarget.mWallpaperYOverscroll;
+            }
         }
 
         // Start stepping backwards from here, ensuring that our wallpaper windows
@@ -1954,6 +1977,36 @@ public class WindowManagerService extends IWindowManager.Stub
         }
     }
 
+    public int getLastWallpaperX() {
+        int curTokenIndex = mWallpaperTokens.size();
+        while (curTokenIndex > 0) {
+            curTokenIndex--;
+            WindowToken token = mWallpaperTokens.get(curTokenIndex);
+            int curWallpaperIndex = token.windows.size();
+            while (curWallpaperIndex > 0) {
+                curWallpaperIndex--;
+                WindowState wallpaperWin = token.windows.get(curWallpaperIndex);
+                return wallpaperWin.mXOffset;
+            }
+        }
+        return -1;
+    }
+
+    public int getLastWallpaperY() {
+        int curTokenIndex = mWallpaperTokens.size();
+        while (curTokenIndex > 0) {
+            curTokenIndex--;
+            WindowToken token = mWallpaperTokens.get(curTokenIndex);
+            int curWallpaperIndex = token.windows.size();
+            while (curWallpaperIndex > 0) {
+                curWallpaperIndex--;
+                WindowState wallpaperWin = token.windows.get(curWallpaperIndex);
+                return wallpaperWin.mYOffset;
+            }
+        }
+        return -1;
+    }
+
     boolean updateWallpaperOffsetLocked(WindowState wallpaperWin, int dw, int dh,
             boolean sync) {
         boolean changed = false;
@@ -1962,15 +2015,28 @@ public class WindowManagerService extends IWindowManager.Stub
         float wpxs = mLastWallpaperXStep >= 0 ? mLastWallpaperXStep : -1.0f;
         int availw = wallpaperWin.mFrame.right-wallpaperWin.mFrame.left-dw;
         int offset = availw > 0 ? -(int)(availw*wpx+.5f) : 0;
-        changed = wallpaperWin.mXOffset != offset;
+
+        float wpxo = mlastWallpaperOverscrollX >= 0 ? mlastWallpaperOverscrollX : 0.5f;
+        int availwo = mLastWallpaperOverscrollXMax;
+        int overScrollOffset = availwo > 0 ? -(int)(availwo*wpxo+0.5f) : 0;
+
+        changed = wallpaperWin.mXOffset != offset + overScrollOffset ||
+                  wallpaperWin.mXOverscrollOffset != overScrollOffset;
         if (changed) {
             if (DEBUG_WALLPAPER) Slog.v(TAG, "Update wallpaper "
-                    + wallpaperWin + " x: " + offset);
-            wallpaperWin.mXOffset = offset;
+                    + wallpaperWin + " x: " + offset
+                    + "xOverscroll: " + overScrollOffset);
+            wallpaperWin.mXOffset = offset + overScrollOffset;
+            wallpaperWin.mXOverscrollOffset = overScrollOffset;
         }
-        if (wallpaperWin.mWallpaperX != wpx || wallpaperWin.mWallpaperXStep != wpxs) {
+        if (wallpaperWin.mWallpaperX != wpx ||
+            wallpaperWin.mWallpaperXStep != wpxs ||
+            wallpaperWin.mWallpaperXOverscrollMax != availwo ||
+            wallpaperWin.mWallpaperXOverscroll !=  wpxo) {
             wallpaperWin.mWallpaperX = wpx;
             wallpaperWin.mWallpaperXStep = wpxs;
+            wallpaperWin.mWallpaperXOverscrollMax = availwo;
+            wallpaperWin.mWallpaperXOverscroll =  wpxo;
             rawChanged = true;
         }
 
@@ -1978,15 +2044,27 @@ public class WindowManagerService extends IWindowManager.Stub
         float wpys = mLastWallpaperYStep >= 0 ? mLastWallpaperYStep : -1.0f;
         int availh = wallpaperWin.mFrame.bottom-wallpaperWin.mFrame.top-dh;
         offset = availh > 0 ? -(int)(availh*wpy+.5f) : 0;
-        if (wallpaperWin.mYOffset != offset) {
+
+        float wpyo = mlastWallpaperOverscrollY >= 0 ? mlastWallpaperOverscrollY : 0.5f;
+        int availho = mLastWallpaperOverscrollYMax;
+        overScrollOffset = availho > 0 ? -(int)(availho*wpyo+0.5f) : 0;
+        if (wallpaperWin.mYOffset != offset + overScrollOffset ||
+            wallpaperWin.mYOverscrollOffset != overScrollOffset) {
             if (DEBUG_WALLPAPER) Slog.v(TAG, "Update wallpaper "
-                    + wallpaperWin + " y: " + offset);
+                    + wallpaperWin + " y: " + offset
+                    + "yOverscroll: " + overScrollOffset);
             changed = true;
-            wallpaperWin.mYOffset = offset;
+            wallpaperWin.mYOffset = offset + overScrollOffset;
+            wallpaperWin.mYOverscrollOffset = overScrollOffset;
         }
-        if (wallpaperWin.mWallpaperY != wpy || wallpaperWin.mWallpaperYStep != wpys) {
+        if (wallpaperWin.mWallpaperY != wpy ||
+            wallpaperWin.mWallpaperYStep != wpys ||
+            wallpaperWin.mWallpaperYOverscrollMax != availho ||
+            wallpaperWin.mWallpaperYOverscroll !=  wpyo) {
             wallpaperWin.mWallpaperY = wpy;
             wallpaperWin.mWallpaperYStep = wpys;
+            wallpaperWin.mWallpaperYOverscrollMax = availho;
+            wallpaperWin.mWallpaperYOverscroll =  wpyo;
             rawChanged = true;
         }
 
@@ -1995,7 +2073,9 @@ public class WindowManagerService extends IWindowManager.Stub
             try {
                 if (DEBUG_WALLPAPER) Slog.v(TAG, "Report new wp offset "
                         + wallpaperWin + " x=" + wallpaperWin.mWallpaperX
-                        + " y=" + wallpaperWin.mWallpaperY);
+                        + " y=" + wallpaperWin.mWallpaperY
+                        + " xOverscroll=" + wallpaperWin.mWallpaperXOverscroll
+                        + " yOverscroll=" + wallpaperWin.mWallpaperYOverscroll);
                 if (sync) {
                     mWaitingOnWallpaper = wallpaperWin;
                 }
@@ -2048,17 +2128,25 @@ public class WindowManagerService extends IWindowManager.Stub
         final int dh = displayInfo.logicalHeight;
 
         WindowState target = mWallpaperTarget;
-        if (target != null) {
-            if (target.mWallpaperX >= 0) {
-                mLastWallpaperX = target.mWallpaperX;
-            } else if (changingTarget.mWallpaperX >= 0) {
-                mLastWallpaperX = changingTarget.mWallpaperX;
-            }
-            if (target.mWallpaperY >= 0) {
-                mLastWallpaperY = target.mWallpaperY;
-            } else if (changingTarget.mWallpaperY >= 0) {
-                mLastWallpaperY = changingTarget.mWallpaperY;
-            }
+        if (target != null && target.mWallpaperX >= 0) {
+            mLastWallpaperX = target.mWallpaperX;
+        } else if (changingTarget.mWallpaperX >= 0) {
+            mLastWallpaperX = changingTarget.mWallpaperX;
+        }
+        if (target != null && target.mWallpaperY >= 0) {
+            mLastWallpaperY = target.mWallpaperY;
+        } else if (changingTarget.mWallpaperY >= 0) {
+            mLastWallpaperY = changingTarget.mWallpaperY;
+        }
+        if (target != null && target.mWallpaperXOverscroll >= 0) {
+            mlastWallpaperOverscrollX = target.mWallpaperXOverscroll;
+        } else if (changingTarget.mWallpaperXOverscroll >= 0) {
+            mlastWallpaperOverscrollX = changingTarget.mWallpaperXOverscroll;
+        }
+        if (target != null && target.mWallpaperYOverscroll >= 0) {
+            mlastWallpaperOverscrollY = target.mWallpaperYOverscroll;
+        } else if (changingTarget.mWallpaperYOverscroll >= 0) {
+            mlastWallpaperOverscrollY = changingTarget.mWallpaperYOverscroll;
         }
 
         int curTokenIndex = mWallpaperTokens.size();
@@ -2402,6 +2490,11 @@ public class WindowManagerService extends IWindowManager.Stub
     }
 
     public void removeWindowLocked(Session session, WindowState win) {
+        removeWindowLocked(session, win, false);
+    }
+
+    private void removeWindowLocked(Session session, WindowState win,
+            boolean forceRemove) {
         if (win.mAttrs.type == TYPE_APPLICATION_STARTING) {
             if (DEBUG_STARTING_WINDOW) Slog.d(TAG, "Starting window removed " + win);
             removeStartingWindowTimeout(win.mAppToken);
@@ -2452,7 +2545,7 @@ public class WindowManagerService extends IWindowManager.Stub
                     mDisplayMagnifier.onWindowTransitionLocked(win, transit);
                 }
             }
-            if (win.mExiting || win.mWinAnimator.isAnimating()) {
+            if (!forceRemove && (win.mExiting || win.mWinAnimator.isAnimating())) {
                 // The exit animation is running... wait for it!
                 //Slog.i(TAG, "*** Running exit animation...");
                 win.mExiting = true;
@@ -2674,11 +2767,31 @@ public class WindowManagerService extends IWindowManager.Stub
 
     public void setWindowWallpaperPositionLocked(WindowState window, float x, float y,
             float xStep, float yStep) {
-        if (window.mWallpaperX != x || window.mWallpaperY != y)  {
+        if (window.mWallpaperX != x || window.mWallpaperY != y) {
             window.mWallpaperX = x;
             window.mWallpaperY = y;
             window.mWallpaperXStep = xStep;
             window.mWallpaperYStep = yStep;
+            updateWallpaperOffsetLocked(window, true);
+        }
+    }
+
+    public void setWindowWallpaperPositionLocked(WindowState window, float x, float y,
+            float xStep, float yStep, float xOverscroll, float yOverscroll,
+            int xOverscrollMax, int yOverscrollMax) {
+        if (window.mWallpaperX != x || window.mWallpaperY != y ||
+            window.mWallpaperXOverscroll != xOverscroll ||
+            window.mWallpaperYOverscroll != yOverscroll ||
+            window.mWallpaperXOverscrollMax != xOverscrollMax ||
+            window.mWallpaperYOverscrollMax != yOverscrollMax)  {
+            window.mWallpaperX = x;
+            window.mWallpaperY = y;
+            window.mWallpaperXStep = xStep;
+            window.mWallpaperYStep = yStep;
+            window.mWallpaperXOverscroll = xOverscroll;
+            window.mWallpaperYOverscroll = yOverscroll;
+            window.mWallpaperXOverscrollMax = xOverscrollMax;
+            window.mWallpaperYOverscrollMax = yOverscrollMax;
             updateWallpaperOffsetLocked(window, true);
         }
     }
@@ -6065,7 +6178,7 @@ public class WindowManagerService extends IWindowManager.Stub
 
         for (int i=mRotationWatchers.size()-1; i>=0; i--) {
             try {
-                mRotationWatchers.get(i).onRotationChanged(rotation);
+                mRotationWatchers.get(i).watcher.onRotationChanged(rotation);
             } catch (RemoteException e) {
             }
         }
@@ -6097,10 +6210,10 @@ public class WindowManagerService extends IWindowManager.Stub
             public void binderDied() {
                 synchronized (mWindowMap) {
                     for (int i=0; i<mRotationWatchers.size(); i++) {
-                        if (watcherBinder == mRotationWatchers.get(i).asBinder()) {
-                            IRotationWatcher removed = mRotationWatchers.remove(i);
+                        if (watcherBinder == mRotationWatchers.get(i).watcher.asBinder()) {
+                            RotationWatcher removed = mRotationWatchers.remove(i);
                             if (removed != null) {
-                                removed.asBinder().unlinkToDeath(this, 0);
+                                removed.watcher.asBinder().unlinkToDeath(this, 0);
                             }
                             i--;
                         }
@@ -6112,7 +6225,7 @@ public class WindowManagerService extends IWindowManager.Stub
         synchronized (mWindowMap) {
             try {
                 watcher.asBinder().linkToDeath(dr, 0);
-                mRotationWatchers.add(watcher);
+                mRotationWatchers.add(new RotationWatcher(watcher, dr));
             } catch (RemoteException e) {
                 // Client died, no cleanup needed.
             }
@@ -6126,9 +6239,13 @@ public class WindowManagerService extends IWindowManager.Stub
         final IBinder watcherBinder = watcher.asBinder();
         synchronized (mWindowMap) {
             for (int i=0; i<mRotationWatchers.size(); i++) {
-                if (watcherBinder == mRotationWatchers.get(i).asBinder()) {
-                    mRotationWatchers.remove(i);
-                    i--;
+                RotationWatcher rotationWatcher = mRotationWatchers.get(i);
+                if (watcherBinder == rotationWatcher.watcher.asBinder()) {
+                    RotationWatcher removed = mRotationWatchers.remove(i);
+                    if (removed != null) {
+                        removed.watcher.asBinder().unlinkToDeath(removed.dr, 0);
+                        i--;
+                    }
                 }
             }
         }
@@ -10929,7 +11046,7 @@ public class WindowManagerService extends IWindowManager.Stub
             WindowList windows = displayContent.getWindowList();
             while (!windows.isEmpty()) {
                 final WindowState win = windows.get(windows.size() - 1);
-                removeWindowLocked(win.mSession, win);
+                removeWindowLocked(win.mSession, win, true);
             }
         }
         mAnimator.removeDisplayLocked(displayId);

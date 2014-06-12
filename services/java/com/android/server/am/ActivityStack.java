@@ -72,15 +72,12 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.RemoteException;
 import android.os.SystemClock;
-import android.os.SystemProperties;
 import android.os.Trace;
 import android.os.UserHandle;
-import android.text.TextUtils;
 import android.util.EventLog;
 import android.util.Slog;
 import android.view.ContextThemeWrapper;
 import android.view.Display;
-import com.android.internal.app.ActivityTrigger;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -260,18 +257,7 @@ final class ActivityStack {
 
     final Handler mHandler;
 
-    static final ActivityTrigger mActivityTrigger;
-
-    static {
-        if (!TextUtils.isEmpty(SystemProperties.get("ro.vendor.extension_library"))) {
-            mActivityTrigger = new ActivityTrigger();
-        } else {
-            mActivityTrigger = null;
-        }
-    }
-
     final class ActivityStackHandler extends Handler {
-
         //public Handler() {
         //    if (localLOGV) Slog.v(TAG, "Handler started!");
         //}
@@ -1308,17 +1294,7 @@ final class ActivityStack {
         if (prevTask != null && prevTask.mOnTopOfHome && prev.finishing && prev.frontOfTask) {
             if (DEBUG_STACK)  mStackSupervisor.validateTopActivitiesLocked();
             if (prevTask == nextTask) {
-                ArrayList<ActivityRecord> activities = prevTask.mActivities;
-                final int numActivities = activities.size();
-                for (int activityNdx = 0; activityNdx < numActivities; ++activityNdx) {
-                    final ActivityRecord r = activities.get(activityNdx);
-                    // r is usually the same as next, but what if two activities were launched
-                    // before prev finished?
-                    if (!r.finishing) {
-                        r.frontOfTask = true;
-                        break;
-                    }
-                }
+                prevTask.setFrontOfTask();
             } else if (prevTask != topTask()) {
                 // This task is going away but it was supposed to return to the home task.
                 // Now the task above it has to return to the home task instead.
@@ -1365,10 +1341,6 @@ final class ActivityStack {
         next.updateOptionsLocked(options);
 
         if (DEBUG_SWITCH) Slog.v(TAG, "Resuming " + next);
-
-        if (mActivityTrigger != null) {
-            mActivityTrigger.activityResumeTrigger(next.intent);
-        }
 
         // If we are currently pausing an activity, then don't do anything
         // until that is done.
@@ -1798,12 +1770,9 @@ final class ActivityStack {
         if (DEBUG_ADD_REMOVE) Slog.i(TAG, "Adding activity " + r + " to stack to task " + task,
                 new RuntimeException("here").fillInStackTrace());
         task.addActivityToTop(r);
+        task.setFrontOfTask();
 
         r.putInHistory();
-        r.frontOfTask = newTask;
-        if (mActivityTrigger != null) {
-            mActivityTrigger.activityStartTrigger(r.intent);
-        }
         if (!isHomeStack() || numActivities() > 0) {
             // We want to show the starting preview window if we are
             // switching to a new task, or the next activity's process is
@@ -2464,15 +2433,12 @@ final class ActivityStack {
         final ArrayList<ActivityRecord> activities = r.task.mActivities;
         final int index = activities.indexOf(r);
         if (index < (activities.size() - 1)) {
-            ActivityRecord next = activities.get(index+1);
-            if (r.frontOfTask) {
-                // The next activity is now the front of the task.
-                next.frontOfTask = true;
-            }
+            r.task.setFrontOfTask();
             if ((r.intent.getFlags()&Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET) != 0) {
                 // If the caller asked that this activity (and all above it)
                 // be cleared when the task is reset, don't lose that information,
                 // but propagate it up to the next activity.
+                ActivityRecord next = activities.get(index+1);
                 next.intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET);
             }
         }

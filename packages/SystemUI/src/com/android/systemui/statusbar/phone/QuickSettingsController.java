@@ -25,6 +25,7 @@ import static com.android.internal.util.cm.QSConstants.TILE_BLUETOOTH;
 import static com.android.internal.util.cm.QSConstants.TILE_BRIGHTNESS;
 import static com.android.internal.util.cm.QSConstants.TILE_CAMERA;
 import static com.android.internal.util.cm.QSConstants.TILE_CARBON;
+import static com.android.internal.util.cm.QSConstants.TILE_COMPASS;
 import static com.android.internal.util.cm.QSConstants.TILE_DELIMITER;
 import static com.android.internal.util.cm.QSConstants.TILE_EXP_DESKTOP;
 import static com.android.internal.util.cm.QSConstants.TILE_GPS;
@@ -53,6 +54,7 @@ import static com.android.internal.util.cm.QSConstants.TILE_WIFIAP;
 import static com.android.internal.util.cm.QSConstants.TILE_WIMAX;
 import static com.android.internal.util.cm.QSConstants.TILE_QUICKRECORD;
 import static com.android.internal.util.cm.QSConstants.TILE_THEME;
+import static com.android.internal.util.cm.QSConstants.TILE_SHAKE;
 
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
@@ -82,7 +84,9 @@ import com.android.systemui.quicksettings.BrightnessTile;
 import com.android.systemui.quicksettings.BugReportTile;
 import com.android.systemui.quicksettings.CameraTile;
 import com.android.systemui.quicksettings.CarbonTile;
+import com.android.systemui.quicksettings.CompassTile;
 //import com.android.systemui.quicksettings.DockBatteryTile;
+import com.android.systemui.quicksettings.EqualizerTile;
 import com.android.systemui.quicksettings.ExpandedDesktopTile;
 import com.android.systemui.quicksettings.GPSTile;
 import com.android.systemui.quicksettings.InputMethodTile;
@@ -103,6 +107,7 @@ import com.android.systemui.quicksettings.RingerModeTile;
 import com.android.systemui.quicksettings.ScreenshotTile;
 import com.android.systemui.quicksettings.ScreenTimeoutTile;
 import com.android.systemui.quicksettings.SleepScreenTile;
+import com.android.systemui.quicksettings.ShakeEventTile;
 import com.android.systemui.quicksettings.SyncTile;
 import com.android.systemui.quicksettings.ToggleLockscreenTile;
 import com.android.systemui.quicksettings.TorchTile;
@@ -309,6 +314,8 @@ public class QuickSettingsController {
                 qs = new ScreenshotTile(mContext, this, mHandler);
             } else if (tile.equals(TILE_QUICKRECORD)) {
                 qs = new QuickRecordTile(mContext, this);
+            } else if (tile.equals(TILE_SHAKE)) {
+                qs = new ShakeEventTile(mContext, this);
             } else if (tile.equals(TILE_THEME)) {
                 qs = new ThemeTile(mContext, this);
             } else if (tile.equals(TILE_NETWORKADB)) {
@@ -317,6 +324,8 @@ public class QuickSettingsController {
                     qs = new NetworkAdbTile(mContext, this);
 
                 }
+            } else if (tile.equals(TILE_COMPASS)) {
+                qs = new CompassTile(mContext, this);
             }
 
             if (qs != null) {
@@ -368,6 +377,12 @@ public class QuickSettingsController {
         if (QSUtils.deviceSupportsUsbTether(mContext) && Settings.System.getIntForUser(resolver,
                     Settings.System.QS_DYNAMIC_USBTETHER, 1, UserHandle.USER_CURRENT) == 1) {
             QuickSettingsTile qs = new UsbTetherTile(mContext, this);
+            qs.setupQuickSettingsTile(inflater, mContainerView);
+            mQuickSettingsTiles.add(qs);
+        }
+        if (Settings.System.getIntForUser(resolver,
+                Settings.System.QS_DYNAMIC_EQUALIZER, 1, UserHandle.USER_CURRENT) == 1) {
+            QuickSettingsTile qs = new EqualizerTile(mContext, this);
             qs.setupQuickSettingsTile(inflater, mContainerView);
             mQuickSettingsTiles.add(qs);
         }

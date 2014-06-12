@@ -2,7 +2,7 @@
  * Copyright (c) 2013 The Linux Foundation. All rights reserved.
  * Not a Contribution.
  * Copyright (C) 2006 The Android Open Source Project
- * This code has been modified. Portions copyright (C) 2013, ParanoidAndroid Project.
+ * This code has been modified. Portions copyright (C) 2014, ParanoidAndroid Project.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2449,6 +2449,12 @@ public final class Settings {
         public static final String DTMF_TONE_TYPE_WHEN_DIALING = "dtmf_tone_type";
 
         /**
+         * Whether incall glowpad background is transparent or not.  The value is
+         * boolean (1 or 0).
+        */
+        public static final String INCALL_GLOWPAD_TRANSPARENCY = "incall_glowpad_transparency";
+
+        /**
          * Whether the hearing aid is enabled. The value is
          * boolean (1 or 0).
          * @hide
@@ -2979,6 +2985,13 @@ public final class Settings {
          *
          * @hide
          */
+        public static final String QS_DYNAMIC_EQUALIZER = "qs_dynamic_equalizer";
+
+        /**
+         * Quick Settings Panel Dynamic Tiles
+         *
+         * @hide
+         */
         public static final String QS_DYNAMIC_USBTETHER = "qs_dyanmic_usbtether";
 
         /**
@@ -3065,6 +3078,12 @@ public final class Settings {
          * @hide
          */
         public static final String NAV_BUTTONS = "nav_buttons";
+
+        /**
+         * Display second in the Clock
+         * @hide
+         */
+        public static final String CLOCK_USE_SECOND = "clock_use_second";
 
         /**
          * Configurable LTE or 4G icon - up to per user defined
@@ -4011,12 +4030,6 @@ public final class Settings {
         public static final String POWER_MENU_SOUND_ENABLED = "power_menu_silent_enabled";
 
         /**
-         * Defines the custom path to use for UI sound effects (null for default)
-         * @hide
-         */
-        public static final String CUSTOM_SOUND_EFFECTS_PATH = "custom_sound_effects_path";
-
-        /**
          * Swap volume buttons when the screen is rotated
          * 0 - Disabled
          * 1 - Enabled (screen is rotated by 90 or 180 degrees: phone, hybrid)
@@ -4255,6 +4268,34 @@ public final class Settings {
         public static final String STATUSBAR_CLOCK_FONT_STYLE = "statusbar_clock_font_style";
 
         /**
+         * Sensitivity of all system shake events
+         * @hide
+         */
+        public static final String SHAKE_SENSITIVITY = "shake_sensitivity";
+
+        /**
+         * Apps where shake events are disabled
+         * @hide
+         */
+        public static final String DISABLED_SHAKE_APPS = "disabled_shake_apps";
+
+        /**
+         * Whether to enable the shake listener actions.
+         * @hide
+         */
+        public static final String SHAKE_LISTENER_ENABLED = "shake_listener_enabled";
+
+        /**
+         * Shake events for shaking along the x, y, and z axis.
+         * @hide
+         */
+        public static final String[] SHAKE_EVENTS_REGULAR = new String[] {
+            "shake_events_regular_x",
+            "shake_events_regular_y",
+            "shake_events_regular_z"
+        };
+
+        /**
         * @hide
         * Shows custom date before clock time
         * 0 - No Date
@@ -4325,6 +4366,30 @@ public final class Settings {
          * @hide
          */
         public static final String POWER_UI_LOW_BATTERY_WARNING_POLICY = "power_ui_low_battery_warning_policy";
+
+        /**
+         * Hide carrier information on notification drawer
+         * @hide
+         */
+        public static final String NOTIFICATION_HIDE_CARRIER = "notification_hide_carrier";
+
+        /**
+          * Stores values for notification shortcut targets
+          * @hide
+          */
+        public static final String NOTIFICATION_SHORTCUTS_CONFIG = "notification_shortcuts_config";
+
+        /**
+         * Stores the value for notification shortcuts icon color
+         * @hide
+         */
+        public static final String NOTIFICATION_SHORTCUTS_COLOR = "notification_shortcuts_color";
+
+        /**
+         * Whether to colorize the default application icons
+         * @hide
+         */
+        public static final String NOTIFICATION_SHORTCUTS_COLOR_MODE = "notification_shortcuts_color_mode";
 
         /**
          * Allows to show the background activity back the lockscreen
@@ -4661,6 +4726,28 @@ public final class Settings {
          * @hide
          */
         public static final String RECENT_PANEL_EXPANDED_MODE = "recent_panel_expanded_mode";
+
+        /**
+        * Hide network labels in the notification drawer
+        * @hide
+        */
+        public static final String NOTIFICATION_HIDE_LABELS = "notification_hide_labels";
+
+        /**
+         * Hover, default is 0 (off).
+         * 0 = disabled
+         * 1 = enabled
+         * @hide
+         */
+        public static final String HOVER_STATE = "hover_state";
+
+        /**
+         * In call dialpad state.
+         * 0 = hidden
+         * 1 = showing
+         * @hide
+         */
+        public static final String DIALPAD_STATE = "dialpad_state";
 
         /**
          * Settings to backup. This is here so that it's in the same place as the settings
@@ -5803,6 +5890,36 @@ public final class Settings {
         public static final String LOCKSCREEN_TARGETS_COLOR = "lockscreen_targets_color";
 
         /**
+         * Shake events for x,y,z cords
+         * @hide
+         */
+        public static final String[] LOCK_SHAKE_EVENTS = new String[] {
+            "lock_shake_events_x",
+            "lock_shake_events_y",
+            "lock_shake_events_z"
+        };
+
+        /**
+         *Whether shaking the device enables a secure screen
+         * @hide
+         */
+        public static final String LOCK_SHAKE_TEMP_SECURE = "lock_shake_temp_secure";
+
+        /**
+         *When LOCK_SHAKE_TEMP_SECURE is enabled, the time
+         *before a secure lock will auto-engage in milliseconds
+         * @hide
+         */
+        public static final String LOCK_SHAKE_SECURE_TIMER = "lock_shake_secure_timer";
+
+        /**
+         *Whether the device will unlock itself or not upon completeion
+         *of the insecure lock challenge
+         * @hide
+         */
+        public static final String LOCK_TEMP_SECURE_MODE = "lock_temp_secure_mode";
+
+        /**
          * Whether lock pattern will vibrate as user enters (0 = false, 1 =
          * true)
          *
@@ -5840,6 +5957,13 @@ public final class Settings {
          * @deprecated
          */
         public static final String LOCK_SCREEN_OWNER_INFO = "lock_screen_owner_info";
+
+        /**
+         * Allow all (non keyguard specific) widgets to be added to the lockscreen
+         * @hide
+         */
+        public static final String ALLOW_ALL_LOCKSCREEN_WIDGETS =
+            "allow_all_lockscreen_widgets";
 
         /**
          * Ids of the user-selected appwidgets on the lockscreen (comma-delimited).
@@ -6858,6 +6982,9 @@ public final class Settings {
         /** @hide */
         public static final String IMMERSIVE_MODE_CONFIRMATIONS = "immersive_mode_confirmations";
 
+        /** @hide */
+        public static final String HOVER_FIRST_TIME = "hover_first_time";
+
         /**
          * This is the query URI for finding a print service to install.
          *
@@ -7691,6 +7818,12 @@ public final class Settings {
          * @hide
          */
         public static final String SMS_SHORT_CODE_RULE = "sms_short_code_rule";
+
+       /**
+        * Used to select TCP's default initial receiver window size in segments - defaults to a build config value
+        * @hide
+        */
+       public static final String TCP_DEFAULT_INIT_RWND = "tcp_default_init_rwnd";
 
        /**
         * Used to disable Tethering on a device - defaults to true
@@ -8995,6 +9128,19 @@ public final class Settings {
           * @hide
           */
         public static final String MULTI_SIM_DATA_CALL_SUBSCRIPTION = "multi_sim_data_call";
+
+        /**
+          * Subscription set by user for data call on a multi sim device. The difference from
+          * MULTI_SIM_DATA_CALL_SUBSCRIPTION is that this is the subscription that user set
+          * originally. Where as MULTI_SIM_DATA_CALL_SUBSCRIPTION holds the current data call
+          * subscription value, which could be different from user preferred value due to
+          * temporary DDS switch for say a silent DDS switch for MMS transaction.
+          * The value may change dynamically in case of a SIM removal or de activation.
+          * The supported values are 0 = SUB1, 1 = SUB2, 2 = SUB3, etc.
+          * @hide
+          */
+        public static final String MULTI_SIM_DEFAULT_DATA_CALL_SUBSCRIPTION
+                = "multi_sim_defaut_data_call";
 
         /**
           * Subscription to be used for SMS on a multi sim device. The supported values
