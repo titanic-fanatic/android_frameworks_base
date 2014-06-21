@@ -515,4 +515,12 @@ public class IWindowManagerImpl implements IWindowManager {
     public int getSystemUIVisibility() {
         return 0;
     }
+    
+    public void toggleGlobalMenu() {
+    }
+
+    /* @hide */
+    @Override
+    public void toggleStatusBar() {
+    }
 }

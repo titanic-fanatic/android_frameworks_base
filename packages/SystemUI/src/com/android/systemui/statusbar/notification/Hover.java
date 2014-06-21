@@ -106,7 +106,7 @@ public class Hover {
         mInflater = (LayoutInflater) mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
         mHoverLayout = (HoverLayout) mInflater.inflate(R.layout.hover_container, null);
         mHoverLayout.setHoverContainer(this);
-        mHoverHeight = mContext.getResources().getDimensionPixelSize(R.dimen.hover_height);
+        mHoverHeight = mContext.getResources().getDimensionPixelSize(R.dimen.default_notification_min_height);
         mNotificationList = new ArrayList<HoverNotification>();
         mStatusBarNotifications = new ArrayList<StatusBarNotification>();
 
@@ -325,7 +325,7 @@ public class Hover {
 
     public boolean isCallUiInBackground() {
         return Settings.System.getInt(mContext.getContentResolver(),
-                Settings.System.NON_INTRUSIVE_INCALL, 0) != 0;
+                Settings.System.CALL_UI_IN_BACKGROUND, 0) != 0;
     }
 
     public boolean isDialpadShowing() {

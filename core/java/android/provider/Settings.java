@@ -4516,11 +4516,11 @@ public final class Settings {
         public static final String MENU_VISIBILITY = "menu_visibility";
 
         /**
-         * Should the non-intrusive incall ui be used
+         * Whether incomming call UI stays in background
          *
          * @hide
          */
-        public static final String NON_INTRUSIVE_INCALL = "non_intrusive_incall";
+        public static final String CALL_UI_IN_BACKGROUND = "call_ui_in_background";
 
         /**
          * Whether flip action during incomming call should mute or dismiss
@@ -7041,13 +7041,6 @@ public final class Settings {
          * @hide
          */
         public static final String DEFAULT_THEME_COMPONENTS = "default_theme_components";
-
-        /**
-         * Whether the default theme was applied on the first boot.
-         * @hide
-         */
-        public static final String DEFAULT_THEME_APPLIED_ON_FIRST_BOOT =
-                "default_theme_applied_on_first_boot";
 
         /**
          * This are the settings to be backed up.
