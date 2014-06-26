@@ -174,6 +174,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -316,6 +317,8 @@ public class PackageManagerService extends IPackageManager.Stub {
     final int mSdkVersion = Build.VERSION.SDK_INT;
     final String mSdkCodename = "REL".equals(Build.VERSION.CODENAME)
             ? null : Build.VERSION.CODENAME;
+
+    final boolean mIsMultiThreaded;
 
     final Context mContext;
     final boolean mFactoryTest;
@@ -1162,6 +1165,8 @@ public class PackageManagerService extends IPackageManager.Stub {
             Slog.w(TAG, "**** ro.build.version.sdk not set!");
         }
 
+        mIsMultiThreaded = !"false".equals(SystemProperties.get("persist.sys.dalvik.multithread"));
+
         mContext = context;
         mFactoryTest = factoryTest;
         mOnlyCore = onlyCore;
@@ -1291,13 +1296,17 @@ public class PackageManagerService extends IPackageManager.Stub {
                             if (dalvik.system.DexFile.isDexOptNeeded(lib)) {
                                 alreadyDexOpted.add(lib);
                                 didDexOpt = true;
-
-                                executorService.submit(new Runnable() {
+                                Runnable task = new Runnable() {
                                     @Override
                                     public void run() {
                                         mInstaller.dexopt(lib, Process.SYSTEM_UID, true);
                                     }
-                                });
+                                };
+                                if (!mIsMultiThreaded) {
+                                    task.run();
+                                } else {
+                                    executorService.submit(task);
+                                }
                             }
                         } catch (FileNotFoundException e) {
                             Slog.w(TAG, "Library not found: " + lib);
@@ -1347,13 +1356,17 @@ public class PackageManagerService extends IPackageManager.Stub {
                         try {
                             if (dalvik.system.DexFile.isDexOptNeeded(path)) {
                                 didDexOpt = true;
-
-                                executorService.submit(new Runnable() {
+                                Runnable task = new Runnable() {
                                     @Override
                                     public void run() {
                                         mInstaller.dexopt(path, Process.SYSTEM_UID, true);
                                     }
-                                });
+                                };
+                                if (!mIsMultiThreaded) {
+                                    task.run();
+                                } else {
+                                    executorService.submit(task);
+                                }
                             }
                         } catch (FileNotFoundException e) {
                             Slog.w(TAG, "Jar not found: " + path);
@@ -3693,7 +3706,7 @@ public class PackageManagerService extends IPackageManager.Stub {
                 // Ignore entries which are not apk's
                 continue;
             }
-            executorService.submit(new Runnable() {
+            Runnable task = new Runnable () {
                 @Override
                 public void run() {
                     PackageParser.Package pkg = scanPackageLI(file,
@@ -3706,7 +3719,12 @@ public class PackageManagerService extends IPackageManager.Stub {
                         file.delete();
                     }
                 }
-            });
+            };
+            if (!mIsMultiThreaded) {
+                task.run();
+            } else {
+                executorService.submit(task);
+            }
         }
         executorService.shutdown();
         try {
@@ -4042,29 +4060,34 @@ public class PackageManagerService extends IPackageManager.Stub {
             mDeferredDexOpt = null;
         }
         if (pkgs != null) {
-            final int[] i = {0};
+            final AtomicInteger i = new AtomicInteger(0);
             final int pkgsSize = pkgs.size();
             ExecutorService executorService = Executors.newFixedThreadPool(sNThreads);
-            final long start = System.currentTimeMillis();
             for (PackageParser.Package pkg : pkgs) {
                 final PackageParser.Package p = pkg;
                 synchronized (mInstallLock) {
-                    if (!p.mDidDexOpt) {
-                        executorService.submit(new Runnable() {
-                            @Override
-                            public void run() {
-                                if (!isFirstBoot()) {
-                                    i[0]++;
-                                    postBootMessageUpdate(i[0], pkgsSize);
+                    Runnable task = new Runnable() {
+                        @Override
+                        public void run() {
+                            if (!isFirstBoot()) {
+                                i.getAndIncrement();
+                                try {
+                                    ActivityManagerNative.getDefault().showBootMessage(
+                                        mContext.getResources().getString(
+                                            com.android.internal.R.string.android_upgrading_apk,
+                                            i.get(), pkgsSize), true);
+                                } catch (RemoteException e) {
                                 }
+                            }
+                            if (!p.mDidDexOpt) {
                                 performDexOptLI(p, false, false, true);
                             }
-                        });
-                    } else {
-                        if (!isFirstBoot()) {
-                            i[0]++;
-                            postBootMessageUpdate(i[0], pkgsSize);
                         }
+                    };
+                    if (!mIsMultiThreaded) {
+                        task.run();
+                    } else {
+                        executorService.submit(task);
                     }
                 }
             }
@@ -4074,18 +4097,6 @@ public class PackageManagerService extends IPackageManager.Stub {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            final long time = System.currentTimeMillis() - start;
-            Slog.v("MIK", "Finished in "+time+" ms");
-        }
-    }
-
-    private void postBootMessageUpdate(int n, int total) {
-        try {
-            ActivityManagerNative.getDefault().showBootMessage(
-                    mContext.getResources().getString(
-                            com.android.internal.R.string.android_upgrading_apk,
-                            n, total), true);
-        } catch (RemoteException e) {
         }
     }
 
