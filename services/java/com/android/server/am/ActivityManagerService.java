@@ -25,13 +25,14 @@ import static com.android.internal.util.XmlUtils.writeLongAttribute;
 import static com.android.server.Watchdog.NATIVE_STACKS_OF_INTEREST;
 import static org.xmlpull.v1.XmlPullParser.END_DOCUMENT;
 import static org.xmlpull.v1.XmlPullParser.START_TAG;
-
 import static com.android.server.am.ActivityStackSupervisor.HOME_STACK_ID;
 
 import android.app.AppOpsManager;
 import android.appwidget.AppWidgetManager;
 import android.content.pm.ThemeUtils;
+import android.content.res.ThemeConfig;
 import android.util.ArrayMap;
+
 import com.android.internal.R;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.app.IAppOpsService;
@@ -54,6 +55,7 @@ import com.android.server.Watchdog;
 import com.android.server.am.ActivityStack.ActivityState;
 import com.android.server.firewall.IntentFirewall;
 import com.android.server.pm.UserManagerService;
+import com.android.server.power.PowerManagerService;
 import com.android.server.wm.AppTransition;
 import com.android.server.wm.StackBox;
 import com.android.server.wm.WindowManagerService;
@@ -127,9 +129,7 @@ import android.content.pm.ResolveInfo;
 import android.content.pm.ServiceInfo;
 import android.content.res.CompatibilityInfo;
 import android.content.res.Configuration;
-import android.content.res.CustomTheme;
 import android.graphics.Bitmap;
-import android.graphics.Typeface;
 import android.net.Proxy;
 import android.net.ProxyProperties;
 import android.net.Uri;
@@ -204,7 +204,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import dalvik.system.Zygote;
 
 public final class ActivityManagerService extends ActivityManagerNative
         implements Watchdog.Monitor, BatteryStatsImpl.BatteryCallback {
@@ -1004,6 +1003,8 @@ public final class ActivityManagerService extends ActivityManagerNative
     int mProcessLimitOverride = -1;
 
     WindowManagerService mWindowManager;
+
+    PowerManagerService mPowerManager;
 
     static ActivityManagerService mSelf;
     static ActivityThread mSystemThread;
@@ -1855,7 +1856,7 @@ public final class ActivityManagerService extends ActivityManagerNative
         ncl.start();
     }
 
-    public static final Context main(int factoryTest) {
+    public static final Context main(int factoryTest, PowerManagerService power) {
         AThread thr = new AThread();
         thr.start();
 
@@ -1883,6 +1884,7 @@ public final class ActivityManagerService extends ActivityManagerNative
         m.mBatteryStatsService.publish(context);
         m.mUsageStatsService.publish(context);
         m.mAppOpsService.publish(context);
+        m.mPowerManager = power;
 
         synchronized (thr) {
             thr.mReady = true;
@@ -14132,8 +14134,8 @@ public final class ActivityManagerService extends ActivityManagerNative
         Configuration ci;
         synchronized(this) {
             ci = new Configuration(mConfiguration);
-            if (ci.customTheme == null) {
-                ci.customTheme = CustomTheme.getBootTheme(mContext.getContentResolver());
+            if (ci.themeConfig == null) {
+                ci.themeConfig = ThemeConfig.getBootTheme(mContext.getContentResolver());
             }
         }
         return ci;
@@ -14209,9 +14211,9 @@ public final class ActivityManagerService extends ActivityManagerNative
                                      values.userSetLocale);
                 }
 
-                if (values.customTheme != null) {
-                    saveThemeResourceLocked(values.customTheme,
-                            !values.customTheme.equals(mConfiguration.customTheme));
+                if (values.themeConfig != null) {
+                    saveThemeResourceLocked(values.themeConfig,
+                            !values.themeConfig.equals(mConfiguration.themeConfig));
                 }
 
                 mConfigurationSeq++;
@@ -14363,12 +14365,10 @@ public final class ActivityManagerService extends ActivityManagerNative
         return srec.launchedFromPackage;
     }
 
-    private void saveThemeResourceLocked(CustomTheme t, boolean isDiff){
+    private void saveThemeResourceLocked(ThemeConfig t, boolean isDiff){
         if(isDiff) {
-            Settings.Secure.putString(mContext.getContentResolver(), Configuration.THEME_PACKAGE_NAME_PERSISTENCE_PROPERTY, t.getThemePackageName());
-            Settings.Secure.putString(mContext.getContentResolver(), Configuration.THEME_SYSTEMUI_PACKAGE_NAME_PERSISTENCE_PROPERTY, t.getSystemUiPackageName());
-            Settings.Secure.putString(mContext.getContentResolver(), Configuration.THEME_ICONPACK_PACKAGE_NAME_PERSISTENCE_PROPERTY, t.getIconPackPkgName());
-            Settings.Secure.putString(mContext.getContentResolver(), Configuration.THEME_FONT_PACKAGE_NAME_PERSISTENCE_PROPERTY, t.getFontPackPkgName());
+            Settings.Secure.putString(mContext.getContentResolver(),
+                    Configuration.THEME_PKG_CONFIGURATION_PERSISTENCE_PROPERTY, t.toJson());
         }
     }
 
