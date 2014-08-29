@@ -19,7 +19,6 @@ package com.android.server;
 import static org.xmlpull.v1.XmlPullParser.END_DOCUMENT;
 import static org.xmlpull.v1.XmlPullParser.END_TAG;
 import static org.xmlpull.v1.XmlPullParser.START_TAG;
-
 import android.app.ActivityManager;
 import android.app.ActivityManagerNative;
 import android.app.AppGlobals;
@@ -35,6 +34,7 @@ import android.app.StatusBarManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -47,6 +47,7 @@ import android.content.pm.ServiceInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Resources;
 import android.database.ContentObserver;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.media.AudioManager;
 import android.media.IAudioService;
@@ -71,6 +72,7 @@ import android.text.TextUtils;
 import android.util.AtomicFile;
 import android.util.EventLog;
 import android.util.Log;
+import android.util.LruCache;
 import android.util.Slog;
 import android.util.Xml;
 import android.view.accessibility.AccessibilityEvent;
@@ -81,6 +83,9 @@ import com.android.internal.R;
 import com.android.internal.notification.NotificationScorer;
 import com.android.internal.util.FastXmlSerializer;
 import com.android.internal.util.cm.QuietHoursUtils;
+import com.android.internal.util.cm.SpamFilter;
+import com.android.internal.util.cm.SpamFilter.SpamContract.NotificationTable;
+import com.android.internal.util.cm.SpamFilter.SpamContract.PackageTable;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -104,6 +109,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
 
 import libcore.io.IoUtils;
 
@@ -135,6 +142,8 @@ public class NotificationManagerService extends INotificationManager.Stub
     private static final int JUNK_SCORE = -1000;
     private static final int NOTIFICATION_PRIORITY_MULTIPLIER = 10;
     private static final int SCORE_DISPLAY_THRESHOLD = Notification.PRIORITY_MIN * NOTIFICATION_PRIORITY_MULTIPLIER;
+    private static final String IS_FILTERED_QUERY = NotificationTable.NORMALIZED_TEXT + "=? AND " +
+            PackageTable.PACKAGE_NAME + "=?";
 
     // Notifications with scores below this will not interrupt the user, either via LED or
     // sound or vibration
@@ -181,6 +190,17 @@ public class NotificationManagerService extends INotificationManager.Stub
     private boolean mNotificationPulseEnabled;
     private HashMap<String, NotificationLedValues> mNotificationPulseCustomLedValues;
     private Map<String, String> mPackageNameMappings;
+    private final LruCache<Integer, FilterCacheInfo> mSpamCache;
+    private ExecutorService mSpamExecutor = Executors.newSingleThreadExecutor();
+
+    private static final Uri FILTER_MSG_URI = new Uri.Builder()
+            .scheme(ContentResolver.SCHEME_CONTENT)
+            .authority(SpamFilter.AUTHORITY)
+            .appendPath("message")
+            .build();
+    private static final Uri UPDATE_MSG_URI = FILTER_MSG_URI.buildUpon()
+            .appendEncodedPath("inc_count")
+            .build();
 
     // used as a mutex for access to all active notifications & listeners
     private final ArrayList<NotificationRecord> mNotificationList =
@@ -207,11 +227,10 @@ public class NotificationManagerService extends INotificationManager.Stub
     private HashSet<String> mEnabledListenerPackageNames = new HashSet<String>();
 
     // Notification control database. For now just contains disabled packages.
-    private AtomicFile mPolicyFile, mPeekPolicyFile, mFloatingModePolicyFile, mHoverPolicyFile;
+    private AtomicFile mPolicyFile, mPeekPolicyFile, mFloatingModePolicyFile;
     private HashSet<String> mBlockedPackages = new HashSet<String>();
     private HashSet<String> mPeekBlacklist = new HashSet<String>();
     private HashSet<String> mFloatingModeBlacklist = new HashSet<String>();
-    private HashSet<String> mHoverBlacklist = new HashSet<String>();
 
     private static final int DB_VERSION = 1;
 
@@ -225,7 +244,6 @@ public class NotificationManagerService extends INotificationManager.Stub
     private static final String NOTIFICATION_POLICY = "notification_policy.xml";
     private static final String PEEK_POLICY = "peek_policy.xml";
     private static final String FLOATING_MODE_POLICY = "floating_mode_policy.xml";
-    private static final String HOVER_POLICY = "hover_policy.xml";
 
     private final ArrayList<NotificationScorer> mScorers = new ArrayList<NotificationScorer>();
 
@@ -471,16 +489,6 @@ public class NotificationManagerService extends INotificationManager.Stub
         }
     }
 
-    private void loadHoverBlockDb() {
-        synchronized(mHoverBlacklist) {
-            if (mHoverPolicyFile == null) {
-                mHoverPolicyFile = new AtomicFile(new File(SYSTEM_FOLDER, HOVER_POLICY));
-                mHoverBlacklist.clear();
-                readPolicy(mHoverPolicyFile, TAG_BLOCKED_PKGS, mHoverBlacklist);
-            }
-        }
-    }
-
     private void writeBlockDb() {
         synchronized(mBlockedPackages) {
             FileOutputStream outfile = null;
@@ -583,40 +591,6 @@ public class NotificationManagerService extends INotificationManager.Stub
         }
     }
 
-    private void writeHoverBlockDb() {
-        synchronized(mHoverBlacklist) {
-            FileOutputStream outfile = null;
-            try {
-                outfile = mHoverPolicyFile.startWrite();
-
-                XmlSerializer out = new FastXmlSerializer();
-                out.setOutput(outfile, "utf-8");
-
-                out.startDocument(null, true);
-
-                out.startTag(null, TAG_BODY); {
-                    out.attribute(null, ATTR_VERSION, String.valueOf(DB_VERSION));
-                    out.startTag(null, TAG_BLOCKED_PKGS); {
-                        // write all known network policies
-                        for (String pkg : mHoverBlacklist) {
-                            out.startTag(null, TAG_PACKAGE); {
-                                out.attribute(null, ATTR_NAME, pkg);
-                            } out.endTag(null, TAG_PACKAGE);
-                        }
-                    } out.endTag(null, TAG_BLOCKED_PKGS);
-                } out.endTag(null, TAG_BODY);
-
-                out.endDocument();
-
-                mHoverPolicyFile.finishWrite(outfile);
-            } catch (IOException e) {
-                if (outfile != null) {
-                    mHoverPolicyFile.failWrite(outfile);
-                }
-            }
-        }
-    }
-
     public void setPeekBlacklistStatus(String pkg, boolean status) {
         if (status) {
             mPeekBlacklist.add(pkg);
@@ -635,25 +609,12 @@ public class NotificationManagerService extends INotificationManager.Stub
         writeFloatingModeBlockDb();
     }
 
-    public void setHoverBlacklistStatus(String pkg, boolean status) {
-        if (status) {
-            mHoverBlacklist.add(pkg);
-        } else {
-            mHoverBlacklist.remove(pkg);
-        }
-        writeHoverBlockDb();
-    }
-
     public boolean isPackageAllowedForPeek(String pkg) {
         return !mPeekBlacklist.contains(pkg);
     }
 
     public boolean isPackageAllowedForFloatingMode(String pkg) {
         return !mFloatingModeBlacklist.contains(pkg);
-    }
-
-    public boolean isPackageAllowedForHover(String pkg) {
-        return !mHoverBlacklist.contains(pkg);
     }
 
     /**
@@ -693,7 +654,6 @@ public class NotificationManagerService extends INotificationManager.Stub
         writeBlockDb();
         writePeekBlockDb();
         writeFloatingModeBlockDb();
-        writeHoverBlockDb();
     }
 
 
@@ -1783,6 +1743,8 @@ public class NotificationManagerService extends INotificationManager.Stub
                 Slog.w(TAG, "Problem accessing scorer " + scorerName + ".", e);
             }
         }
+
+        mSpamCache = new LruCache<Integer, FilterCacheInfo>(100);
     }
 
     /**
@@ -1792,7 +1754,6 @@ public class NotificationManagerService extends INotificationManager.Stub
         loadBlockDb();
         loadPeekBlockDb();
         loadFloatingModeBlockDb();
-        loadHoverBlockDb();
 
         PackageManager pm = mContext.getPackageManager();
         for (String pkg : mBlockedPackages) {
@@ -2039,6 +2000,51 @@ public class NotificationManagerService extends INotificationManager.Stub
         return (x < low) ? low : ((x > high) ? high : x);
     }
 
+    private int getNotificationHash(Notification notification, String packageName) {
+        CharSequence message = SpamFilter.getNotificationContent(notification);
+        return (message + ":" + packageName).hashCode();
+    }
+
+    private static final class FilterCacheInfo {
+        String packageName;
+        int notificationId;
+    }
+
+    private boolean isNotificationSpam(Notification notification, String basePkg) {
+        Integer notificationHash = getNotificationHash(notification, basePkg);
+        boolean isSpam = false;
+        if (mSpamCache.get(notificationHash) != null) {
+            isSpam = true;
+        } else {
+            String msg = SpamFilter.getNotificationContent(notification);
+            Cursor c = mContext.getContentResolver().query(FILTER_MSG_URI, null, IS_FILTERED_QUERY,
+                    new String[]{SpamFilter.getNormalizedContent(msg), basePkg}, null);
+            if (c != null) {
+                if (c.moveToFirst()) {
+                    FilterCacheInfo info = new FilterCacheInfo();
+                    info.packageName = basePkg;
+                    int notifId = c.getInt(c.getColumnIndex(NotificationTable.ID));
+                    info.notificationId = notifId;
+                    mSpamCache.put(notificationHash, info);
+                    isSpam = true;
+                }
+                c.close();
+            }
+        }
+        if (isSpam) {
+            final int notifId = mSpamCache.get(notificationHash).notificationId;
+            mSpamExecutor.submit(new Runnable() {
+                @Override
+                public void run() {
+                    Uri updateUri = Uri.withAppendedPath(UPDATE_MSG_URI, String.valueOf(notifId));
+                    mContext.getContentResolver().update(updateUri, new ContentValues(),
+                            null, null);
+                }
+            });
+        }
+        return isSpam;
+    }
+
     // Not exposed via Binder; for system use only (otherwise malicious apps could spoof the
     // uid/pid of another application)
 
@@ -2050,6 +2056,7 @@ public class NotificationManagerService extends INotificationManager.Stub
             Slog.v(TAG, "enqueueNotificationInternal: pkg=" + pkg + " id=" + id + " notification=" + notification);
         }
         checkCallerIsSystemOrSameApp(pkg);
+
         final boolean isSystemNotification = isUidSystem(callingUid) || ("android".equals(pkg));
 
         final int userId = ActivityManager.handleIncomingUser(callingPid,
@@ -2166,6 +2173,11 @@ public class NotificationManagerService extends INotificationManager.Stub
                             pkg, id, tag, callingUid, callingPid, score, notification, user);
                     NotificationRecord r = new NotificationRecord(n);
                     NotificationRecord old = null;
+
+                    if (isNotificationSpam(notification, pkg)) {
+                        mArchive.record(r.sbn);
+                        return;
+                    }
 
                     int index = indexOfNotificationLocked(pkg, tag, id, userId);
                     if (index < 0) {

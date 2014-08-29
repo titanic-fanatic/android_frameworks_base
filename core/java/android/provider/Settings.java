@@ -2,7 +2,6 @@
  * Copyright (c) 2013 The Linux Foundation. All rights reserved.
  * Not a Contribution.
  * Copyright (C) 2006 The Android Open Source Project
- * This code has been modified. Portions copyright (C) 2014, ParanoidAndroid Project.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2449,12 +2448,6 @@ public final class Settings {
         public static final String DTMF_TONE_TYPE_WHEN_DIALING = "dtmf_tone_type";
 
         /**
-         * Whether incall glowpad background is transparent or not.  The value is
-         * boolean (1 or 0).
-         */
-        public static final String INCALL_GLOWPAD_TRANSPARENCY = "incall_glowpad_transparency";
-
-        /**
          * Padding above and below dialpad keys in dialer.
          */
         public static final String DIALKEY_PADDING = "dialkey_padding";
@@ -2694,12 +2687,6 @@ public final class Settings {
         public static final String LOCKSCREEN_MAXIMIZE_WIDGETS = "lockscreen_maximize_widgets";
 
         /**
-         * Whether a custom lockscreen wallpaper is enabled
-         * @hide
-         */
-        public static final String LOCKSCREEN_WALLPAPER = "lockscreen_wallpaper";
-
-        /**
          * Whether to use the carousel as widget container on portrait view
          * @hide
          */
@@ -2792,6 +2779,12 @@ public final class Settings {
          * @hide
          */
         public static final String ACTIVE_DISPLAY_DOUBLE_TAP = "active_display_double_tap";
+
+        /**
+         * Whether to enable the modlock keyguard
+         * @hide
+         */
+        public static final String LOCKSCREEN_MODLOCK_ENABLED = "lockscreen_modlock_enabled";
 
         /**
          * @deprecated Use {@link android.provider.Settings.Global#LOW_BATTERY_SOUND}
@@ -3476,6 +3469,11 @@ public final class Settings {
         public static final String LOCKSCREEN_NOTIFICATIONS_COLOR = "lockscreen_notifications_color";
 
         /**
+         * @hide
+         */
+        public static final String PROXIMITY_ON_WAKE = "proximity_on_wake";
+
+        /**
          * Enable looking up of phone numbers of nearby places
          *
          * @hide
@@ -3746,12 +3744,6 @@ public final class Settings {
         public static final String QUIET_HOURS_DIM = "quiet_hours_dim";
 
         /**
-         * Sets the lockscreen background style
-         * @hide
-         */
-        public static final String LOCKSCREEN_BACKGROUND = "lockscreen_background";
-
-         /**
          * Action for long-pressing back button on lock screen
          * @hide
          */
@@ -4384,10 +4376,40 @@ public final class Settings {
         public static final String NOTIFICATION_SHORTCUTS_COLOR_MODE = "notification_shortcuts_color_mode";
 
         /**
-         * Allows to show the background activity back the lockscreen
+         * Whether heads up notification is shown on the bottom of the screen (default = disabled)
+         *
          * @hide
          */
-        public static final String LOCKSCREEN_SEE_THROUGH = "lockscreen_see_through";
+        public static final String HEADS_UP_GRAVITY_BOTTOM = "heads_up_gravity_bottom";
+
+        /**
+         * Whether heads up notification is expanded by default (default = disabled)
+         *
+         * @hide
+         */
+        public static final String HEADS_UP_EXPANDED = "heads_up_expanded";
+
+        /**
+         * Time where heads up is disabled by user interaction (default = 5 minutes)
+         *
+         * @hide
+         */
+        public static final String HEADS_UP_SNOOZE_TIME = "heads_up_snooze_time";
+
+        /**
+         * Time how long heads up will show till it is automatically hidden.
+         * If time = 0 notifications stays till the user interacts with it.
+         *
+         * @hide
+         */
+        public static final String HEADS_UP_NOTIFCATION_DECAY = "heads_up_notifcation_decay";
+
+        /**
+         * Whether notification updates from background notifications should be shown as heads up.
+         *
+         * @hide
+         */
+        public static final String HEADS_UP_SHOW_UPDATE = "heads_up_show_update";
 
         /**
          * Whether lockscreen rotation is enabled
@@ -4395,12 +4417,6 @@ public final class Settings {
          * @hide
          */
         public static final String LOCKSCREEN_ROTATION_ENABLED = "lockscreen_rotation_enabled";
-
-         /**
-         * Allows blurring the lockscreen background
-         * @hide
-         */
-        public static final String LOCKSCREEN_BLUR_RADIUS = "lockscreen_blur_radius";
 
         /**
          * Whether to show the network status in the status bar
@@ -4515,6 +4531,13 @@ public final class Settings {
         public static final String CALL_UI_IN_BACKGROUND = "call_ui_in_background";
 
         /**
+         * Whether incomming call UI stays in background and shows as heads up notification
+         *
+         * @hide
+         */
+        public static final String CALL_UI_AS_HEADS_UP = "call_ui_as_heads_up";
+
+        /**
          * Whether flip action during incomming call should mute or dismiss
          * the call (mute = 0, dismiss = 1, nothing = 2 (default))
          *
@@ -4551,6 +4574,13 @@ public final class Settings {
          * @hide
          */
         public static final String TOAST_ANIMATION = "toast_animation";
+
+        /**
+         * Heads up: Option to exclude from lockscreen, default is 0 (off).
+         *
+         * @hide
+         */
+        public static final String HEADS_UP_EXCLUDE_FROM_LOCK_SCREEN = "heads_up_exclude_from_lock_screen";
 
         /**
          * ListView Animations
@@ -4726,20 +4756,22 @@ public final class Settings {
         public static final String NOTIFICATION_HIDE_LABELS = "notification_hide_labels";
 
         /**
-         * Hover, default is 0 (off).
-         * 0 = disabled
-         * 1 = enabled
+         * Locale for secondary overlay on dialer for t9 search input
          * @hide
          */
-        public static final String HOVER_STATE = "hover_state";
+        public static final String T9_SEARCH_INPUT_LOCALE = "t9_search_input_locale";
 
         /**
-         * In call dialpad state.
-         * 0 = hidden
-         * 1 = showing
+         * The style of the incoming call screen.
+         * Default is {@link INCOMING_CALL_STYLE_FULLSCREEN_PHOTO}.
          * @hide
          */
-        public static final String DIALPAD_STATE = "dialpad_state";
+        public static final String INCOMING_CALL_STYLE = "incoming_call_style";
+
+        /** @hide */
+        public static final int INCOMING_CALL_STYLE_CLASSIC = 0;
+        /** @hide */
+        public static final int INCOMING_CALL_STYLE_FULLSCREEN_PHOTO = 1;
 
         /**
          * Settings to backup. This is here so that it's in the same place as the settings
@@ -4834,11 +4866,13 @@ public final class Settings {
             POWER_MENU_SOUND_ENABLED,
             POWER_MENU_USER_ENABLED,
             LOCKSCREEN_BATTERY_VISIBILITY,
+            LOCKSCREEN_MODLOCK_ENABLED,
             PHONE_BLACKLIST_ENABLED,
             PHONE_BLACKLIST_NOTIFY_ENABLED,
             PHONE_BLACKLIST_PRIVATE_NUMBER_MODE,
             PHONE_BLACKLIST_UNKNOWN_NUMBER_MODE,
             PHONE_BLACKLIST_REGEX_ENABLED,
+            INCOMING_CALL_STYLE,
         };
 
         // Settings moved to Settings.Secure
@@ -6974,9 +7008,6 @@ public final class Settings {
         /** @hide */
         public static final String IMMERSIVE_MODE_CONFIRMATIONS = "immersive_mode_confirmations";
 
-        /** @hide */
-        public static final String HOVER_FIRST_TIME = "hover_first_time";
-
         /**
          * This is the query URI for finding a print service to install.
          *
@@ -6990,12 +7021,6 @@ public final class Settings {
          * @hide
          */
         public static final String PAYMENT_SERVICE_SEARCH_URI = "payment_service_search_uri";
-
-        /**
-         * Whether to allow killing of the foreground app by long-pressing the Back button
-         * @hide
-         */
-        public static final String KILL_APP_LONGPRESS_BACK = "kill_app_longpress_back";
 
         /**
          * Whether to include options in power menu for rebooting into recovery or bootloader

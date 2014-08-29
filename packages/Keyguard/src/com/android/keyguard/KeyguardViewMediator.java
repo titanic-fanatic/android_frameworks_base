@@ -449,7 +449,7 @@ public class KeyguardViewMediator {
                     break;
                 case READY:
                     synchronized (this) {
-                        if (isShowing() && !isSecure()) {
+                        if (isShowing()) {
                             resetStateLocked(null);
                         }
                     }
@@ -571,14 +571,6 @@ public class KeyguardViewMediator {
         int lockSoundDefaultAttenuation = context.getResources().getInteger(
                 com.android.internal.R.integer.config_lockSoundVolumeDb);
         mLockSoundVolume = (float)Math.pow(10, (float)lockSoundDefaultAttenuation/20);
-    }
-
-    public void setBackgroundBitmap(Bitmap bmp) {
-        mKeyguardViewManager.setBackgroundBitmap(bmp);
-    }
-
-    public void setWallpaper(Bitmap bmp) {
-        mKeyguardViewManager.setWallpaper(bmp);
     }
 
     /**
