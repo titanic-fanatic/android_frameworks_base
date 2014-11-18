@@ -7030,11 +7030,7 @@ public final class ActivityManagerService extends ActivityManagerNative
                     }
                     
                     res.add(rti);
-                    if ((tr.intent.getFlags() & Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS) == 0
-                            || (flags & ActivityManager.RECENT_DO_NOT_COUNT_EXCLUDED) == 0
-                            || i == 0) {
-                        maxNum--;
-                    }
+                    maxNum--;
                 }
             }
             return res;
@@ -7428,6 +7424,24 @@ public final class ActivityManagerService extends ActivityManagerNative
             return ActivityRecord.getTaskForActivityLocked(token, onlyRoot);
         }
     }
+
+    public IBinder getActivityForTask(int task, boolean onlyRoot) {
+        final ActivityStack mainStack = mStackSupervisor.getFocusedStack();
+        synchronized(this) {
+            ArrayList<ActivityStack> stacks = mStackSupervisor.getStacks();
+            for (ActivityStack stack : stacks) {
+                TaskRecord r = stack.taskForIdLocked(task);
+
+                if (r != null && r.getTopActivity() != null) {
+                    return r.getTopActivity().appToken;
+                } else {
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
 
     // =========================================================
     // THUMBNAILS
@@ -12638,6 +12652,7 @@ public final class ActivityManagerService extends ActivityManagerNative
         app.foregroundActivities = false;
         app.hasShownUi = false;
         app.hasAboveClient = false;
+        app.hasClientActivities = false;
 
         mServices.killServicesLocked(app, allowRestart);
 

@@ -149,13 +149,9 @@ public abstract class Window {
     private int mDefaultWindowFormat = PixelFormat.OPAQUE;
 
     private boolean mHasSoftInputMode = false;
-    
+
     private boolean mDestroyed;
 
-    /**
-     * Hide from the public api
-     * @hide
-     */
     public boolean mIsFloatingWindow = false;
 
     // The current window attributes.

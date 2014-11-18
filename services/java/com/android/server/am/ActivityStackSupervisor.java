@@ -219,19 +219,21 @@ public final class ActivityStackSupervisor {
      */
     String mPrivacyGuardPackageName = null;
 
+    private final PowerManager mPm;
+
     public ActivityStackSupervisor(ActivityManagerService service, Context context,
             Looper looper) {
         mService = service;
         mContext = context;
         mLooper = looper;
-        PowerManager pm = (PowerManager)context.getSystemService(Context.POWER_SERVICE);
-        mGoingToSleep = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ActivityManager-Sleep");
+        mPm = (PowerManager)context.getSystemService(Context.POWER_SERVICE);
+        mGoingToSleep = mPm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ActivityManager-Sleep");
         mHandler = new ActivityStackSupervisorHandler(looper);
         if (VALIDATE_WAKE_LOCK_CALLER && Binder.getCallingUid() != Process.myUid()) {
             throw new IllegalStateException("Calling must be system uid");
         }
         mLaunchingActivity =
-                pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ActivityManager-Launch");
+                mPm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ActivityManager-Launch");
         mLaunchingActivity.setReferenceCounted(false);
     }
 
@@ -617,11 +619,12 @@ public final class ActivityStackSupervisor {
             String profileFile, ParcelFileDescriptor profileFd, int userId) {
         // Collect information about the target of the Intent.
         ActivityInfo aInfo;
+        ResolveInfo rInfo = null;
         try {
-            ResolveInfo rInfo =
-                AppGlobals.getPackageManager().resolveIntent(
+            rInfo = AppGlobals.getPackageManager().resolveIntent(
                         intent, resolvedType,
                         PackageManager.MATCH_DEFAULT_ONLY
+                                | PackageManager.PERFORM_PRE_LAUNCH_CHECK
                                     | ActivityManagerService.STOCK_PM_FLAGS, userId);
             aInfo = rInfo != null ? rInfo.activityInfo : null;
         } catch (RemoteException e) {
@@ -635,6 +638,16 @@ public final class ActivityStackSupervisor {
             // always restart the exact same activity.
             intent.setComponent(new ComponentName(
                     aInfo.applicationInfo.packageName, aInfo.name));
+
+            // Store the actual target component in an extra field of the intent.
+            // This will be set in case the receiver of the intent wants to retarget the
+            // intent. Ideally we should have a new extra field, but resusing the
+            // changed_component_name_list for now.
+            if (rInfo != null && rInfo.targetComponentName != null) {
+                // Not creating a list to save an unnecessary object.
+                intent.putExtra(Intent.EXTRA_CHANGED_COMPONENT_NAME_LIST,
+                        rInfo.targetComponentName);
+            }
 
             // Don't debug things in the system process
             if ((startFlags&ActivityManager.START_FLAG_DEBUG) != 0) {
@@ -1471,6 +1484,7 @@ public final class ActivityStackSupervisor {
             r.resultTo = null;
         }
 
+        boolean switchStackFromBg = false;
         boolean addingToTask = false;
         boolean movedHome = false;
         TaskRecord reuseTask = null;
@@ -1532,6 +1546,11 @@ public final class ActivityStackSupervisor {
                             }
                             options = null;
                         }
+                    } else {
+                        switchStackFromBg = lastStack != targetStack;
+                        if (DEBUG_TASKS) Slog.d(TAG, "Caller " + sourceRecord
+                                    + " is not top task, it may not move " + r
+                                    + " to front, switchStack=" + switchStackFromBg);
                     }
                     // If the caller has requested that the target task be
                     // reset, then do so.
@@ -1639,6 +1658,10 @@ public final class ActivityStackSupervisor {
                         // don't use that intent!)  And for paranoia, make
                         // sure we have correctly resumed the top activity.
                         if (doResume) {
+                            if (switchStackFromBg) {
+                                moveHomeStack(lastStack.isHomeStack());
+                                targetStack = lastStack;
+                            }
                             targetStack.resumeTopActivityLocked(null, options);
                         } else {
                             ActivityOptions.abort(options);
@@ -2150,6 +2173,7 @@ public final class ActivityStackSupervisor {
                 return ar;
             }
         }
+        mPm.cpuBoost(2000 * 1000);
         if (DEBUG_TASKS) Slog.d(TAG, "No task found");
         return null;
     }

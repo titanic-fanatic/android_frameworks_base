@@ -108,6 +108,7 @@ import com.android.systemui.statusbar.phone.NavigationBarOverlay;
 import com.android.systemui.statusbar.policy.NotificationRowLayout;
 import com.android.systemui.statusbar.policy.activedisplay.ActiveDisplayView;
 import com.android.systemui.statusbar.policy.PieController;
+import com.android.systemui.statusbar.appcirclesidebar.AppCircleSidebar;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -187,6 +188,7 @@ public abstract class BaseStatusBar extends SystemUI implements
     private long mHeadsUpSnoozeStartTime;
     protected String mHeadsUpPackageName;
     protected boolean mShowHeadsUpUpdates;
+    private int mHeadsUpTextColor;
 
     protected IDreamManager mDreamManager;
     PowerManager mPowerManager;
@@ -271,6 +273,8 @@ public abstract class BaseStatusBar extends SystemUI implements
     public INotificationManager getNotificationManager() {
         return mNotificationManager;
     }
+
+    protected AppCircleSidebar mAppCircleSidebar;
 
     public IStatusBarService getStatusBarService() {
         return mBarService;
@@ -405,7 +409,7 @@ public abstract class BaseStatusBar extends SystemUI implements
         mStatusBarContainer = new FrameLayout(mContext);
         mPeek = new Peek(this, mContext);
         mNotificationHelper = new NotificationHelper(this, mContext);
- 
+
         mPeek.setNotificationHelper(mNotificationHelper);
 
         // Connect in to the status bar manager service
@@ -633,9 +637,9 @@ public abstract class BaseStatusBar extends SystemUI implements
                 null, UserHandle.CURRENT);
     }
 
-    private void launchFloating(PendingIntent pIntent) {
+    private void launchFloating(PendingIntent pIntent, boolean allowed) {
         Intent overlay = new Intent();
-        overlay.addFlags(Intent.FLAG_FLOATING_WINDOW | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        if (allowed) overlay.addFlags(Intent.FLAG_FLOATING_WINDOW | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         try {
             ActivityManagerNative.getDefault().resumeAppSwitches();
             ActivityManagerNative.getDefault().dismissKeyguardOnNextActivity();
@@ -734,7 +738,7 @@ public abstract class BaseStatusBar extends SystemUI implements
                                     animateCollapsePanels(CommandQueue.FLAG_EXCLUDE_NONE);
                                     Toast.makeText(mContext, text, duration).show();
                                 } else {
-                                    launchFloating(contentIntent);
+                                    launchFloating(contentIntent, true);
                                     animateCollapsePanels(CommandQueue.FLAG_EXCLUDE_NONE);
                                 }
                             } else {
@@ -1050,7 +1054,8 @@ public abstract class BaseStatusBar extends SystemUI implements
     protected void onShowSearchPanel() {
     }
 
-    public boolean inflateViews(NotificationData.Entry entry, ViewGroup parent) {
+    public boolean inflateViews(NotificationData.Entry entry,
+            ViewGroup parent, int customTextColor) {
         int minHeight =
                 mContext.getResources().getDimensionPixelSize(R.dimen.notification_min_height);
         int maxHeight =
@@ -1058,8 +1063,17 @@ public abstract class BaseStatusBar extends SystemUI implements
         StatusBarNotification sbn = entry.notification;
         RemoteViews contentView = sbn.getNotification().contentView;
         RemoteViews bigContentView = sbn.getNotification().bigContentView;
+        mHeadsUpTextColor = customTextColor;
         if (contentView == null) {
             return false;
+        }
+
+        // apply custom text color to heads up notifications ONLY
+        if (mHeadsUpTextColor != 0) { // if it's 0, then text color is default
+            if (mHeadsUpTextColor != -1) { //if it's -1, then it's a regular notification
+                setHeadsUpTextColor(contentView, mHeadsUpTextColor);
+                setHeadsUpTextColor(bigContentView, mHeadsUpTextColor);
+            }
         }
 
         // create the row view
@@ -1146,6 +1160,18 @@ public abstract class BaseStatusBar extends SystemUI implements
         return true;
     }
 
+    private void setHeadsUpTextColor(RemoteViews view, int color) {
+        if (view != null) {
+            view.setInt(com.android.internal.R.id.title, "setTextColor", color);
+            view.setInt(com.android.internal.R.id.text, "setTextColor", color);
+            view.setInt(com.android.internal.R.id.big_text, "setTextColor", color);
+            view.setInt(com.android.internal.R.id.time, "setTextColor", color);
+//            view.setInt(com.android.internal.R.id.action0, "setTextColor", color);
+            view.setInt(com.android.internal.R.id.text2, "setTextColor", color);
+            view.setInt(com.android.internal.R.id.info, "setTextColor", color);
+        }
+    }
+
     public NotificationClicker makeClicker(PendingIntent intent, String pkg, String tag, int id) {
         return new NotificationClicker(intent, pkg, tag, id);
     }
@@ -1207,7 +1233,11 @@ public abstract class BaseStatusBar extends SystemUI implements
                 // System is dead
             }
 
-            if (mPendingIntent != null) {
+            if (mPile.launchNextNotificationFloating()) {
+                if (mPendingIntent != null) {
+                    launchFloating(mPendingIntent, allowed);
+                }
+            } else if (mPendingIntent != null) {
                 int[] pos = new int[2];
                 v.getLocationOnScreen(pos);
                 Intent overlay = new Intent();
@@ -1342,7 +1372,7 @@ public abstract class BaseStatusBar extends SystemUI implements
         }
         // Construct the expanded view.
         NotificationData.Entry entry = new NotificationData.Entry(key, notification, iconView);
-        if (!inflateViews(entry, mPile)) {
+        if (!inflateViews(entry, mPile, 0)) {
             handleNotificationError(key, notification, "Couldn't expand RemoteViews for: "
                     + notification);
             return null;
@@ -1362,7 +1392,7 @@ public abstract class BaseStatusBar extends SystemUI implements
         updateExpansionStates();
         updateNotificationIcons();
         mHandler.removeCallbacks(mPanelCollapseRunnable);
-       
+
         if (!mPowerManager.isScreenOn()) {
             // screen off - check if peek is enabled
             if (mNotificationHelper.isPeekEnabled()) {
@@ -1748,6 +1778,64 @@ public abstract class BaseStatusBar extends SystemUI implements
         for (NavigationBarCallback callback : mNavigationCallbacks) {
             callback.setNavigationIconHints(hints);
         }
+    }
+
+    protected void addAppCircleSidebar() {
+        if (mAppCircleSidebar == null) {
+            mAppCircleSidebar = (AppCircleSidebar) View.inflate(mContext, R.layout.app_circle_sidebar, null);
+            mWindowManager.addView(mAppCircleSidebar, getAppCircleSidebarLayoutParams());
+        }
+    }
+
+    protected void removeAppCircleSidebar() {
+        if (mAppCircleSidebar != null) {
+            mWindowManager.removeView(mAppCircleSidebar);
+        }
+    }
+
+    protected WindowManager.LayoutParams getAppCircleSidebarLayoutParams() {
+        int maxWidth =
+                mContext.getResources().getDimensionPixelSize(R.dimen.app_sidebar_trigger_width);
+
+        WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+                maxWidth,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.TYPE_STATUS_BAR_SUB_PANEL,
+                0
+                | WindowManager.LayoutParams.FLAG_TOUCHABLE_WHEN_WAKING
+                | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
+                | WindowManager.LayoutParams.FLAG_SPLIT_TOUCH,
+                PixelFormat.TRANSLUCENT);
+        lp.privateFlags |= WindowManager.LayoutParams.PRIVATE_FLAG_NO_MOVE_ANIMATION;
+        lp.gravity = Gravity.TOP | Gravity.RIGHT;
+        lp.setTitle("AppCircleSidebar");
+
+        return lp;
+    }
+
+    protected void setIconHiddenByUser(String iconPackage, boolean hide) {
+        if (iconPackage == null
+            || iconPackage.isEmpty()
+            || iconPackage.equals("android")) {
+            return;
+        }
+        mContext.getSharedPreferences("hidden_statusbar_icon_packages", 0)
+            .edit()
+            .putBoolean(iconPackage, hide)
+            .apply();
+    }
+
+    protected boolean isIconHiddenByUser(String iconPackage) {
+        if (iconPackage == null
+            || iconPackage.isEmpty()
+            || iconPackage.equals("android")) {
+            return false;
+        }
+        final boolean hide = mContext.getSharedPreferences("hidden_statusbar_icon_packages", 0)
+                   .getBoolean(iconPackage, false);
+        return hide;
     }
 
     protected void propagateMenuVisibility(boolean showMenu) {

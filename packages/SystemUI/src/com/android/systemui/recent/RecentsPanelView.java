@@ -139,6 +139,8 @@ public class RecentsPanelView extends FrameLayout implements OnItemClickListener
         public void drawFadedEdges(Canvas c, int left, int right, int top, int bottom);
         public void setOnScrollListener(Runnable listener);
         public void removeAllViewsInLayout();
+        public boolean isConfirmationDialogAnswered();
+        public void setDismissAfterConfirmation(boolean dismiss);
     }
 
     private final class OnLongClickDelegate implements View.OnLongClickListener {
@@ -308,6 +310,8 @@ public class RecentsPanelView extends FrameLayout implements OnItemClickListener
         mRecentItemLayoutId = a.getResourceId(R.styleable.RecentsPanelView_recentItemLayout, 0);
         mRecentTasksLoader = RecentTasksLoader.getInstance(context);
         a.recycle();
+        mNotificationManager = INotificationManager.Stub.asInterface(
+            ServiceManager.getService(Context.NOTIFICATION_SERVICE));
     }
 
     public int numItemsInOneScreenful() {
@@ -812,26 +816,19 @@ public class RecentsPanelView extends FrameLayout implements OnItemClickListener
                         holder.thumbnailViewImage, bm, 0, 0, null).toBundle();
 
         show(false);
-        Intent intent = ad.intent;
-        boolean floating = (intent.getFlags() & Intent.FLAG_FLOATING_WINDOW) == Intent.FLAG_FLOATING_WINDOW;
-        if (ad.taskId >= 0 && !floating) {
+        if (ad.taskId >= 0) {
             // This is an active task; it should just go to the foreground.
             am.moveTaskToFront(ad.taskId, ActivityManager.MOVE_TASK_WITH_HOME,
                     opts);
         } else {
-            boolean backPressed = mRecentsActivity != null && mRecentsActivity.mBackPressed;
-            if (!floating || !backPressed) {
-                intent.addFlags(Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY
-                        | Intent.FLAG_ACTIVITY_TASK_ON_HOME
-                        | Intent.FLAG_ACTIVITY_NEW_TASK);
-            }
+            Intent intent = ad.intent;
+            intent.addFlags(Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY
+                    | Intent.FLAG_ACTIVITY_TASK_ON_HOME
+                    | Intent.FLAG_ACTIVITY_NEW_TASK);
             if (DEBUG) Log.v(TAG, "Starting activity " + intent);
             try {
                 context.startActivityAsUser(intent, opts,
                         new UserHandle(UserHandle.USER_CURRENT));
-                if (floating && mRecentsActivity != null) {
-                    mRecentsActivity.finish();
-                }
             } catch (SecurityException e) {
                 Log.e(TAG, "Recents does not have the permission to launch " + intent, e);
             } catch (ActivityNotFoundException e) {
@@ -863,8 +860,13 @@ public class RecentsPanelView extends FrameLayout implements OnItemClickListener
         // mListAdapter.notifyDataSetChanged();
 
         if (mRecentTaskDescriptions.size() == 0) {
-            RecentTasksLoader.getInstance(mContext).cancelPreloadingFirstTask();
-            dismissAndGoBack();
+            // Instruct (possibly) running on-the-spot dialog to dismiss recents
+            mRecentsContainer.setDismissAfterConfirmation(true);
+            if (mRecentsContainer.isConfirmationDialogAnswered()) {
+                // No on-the-spot dialog running, safe to dismiss now
+                RecentTasksLoader.getInstance(mContext).cancelPreloadingFirstTask();
+                dismissAndGoBack();
+            }
         }
 
         // Currently, either direction means the same thing, so ignore direction and remove
@@ -886,12 +888,54 @@ public class RecentsPanelView extends FrameLayout implements OnItemClickListener
         }
     }
 
+    public void handleFloat(View view) {
+        launchFloating(view);
+    }
+
+    private void launchFloating(View view) {
+        ViewHolder viewHolder = (ViewHolder) view.getTag();
+        if (viewHolder != null) {
+            final TaskDescription ad = viewHolder.taskDescription;
+            if (ad == null) {
+                Log.v(TAG, "Not able to find activity description for floating task; view=" + view +
+                      " tag=" + view.getTag());
+                return;
+            }
+
+            String currentViewPackage = ad.packageName;
+            boolean allowed = true; // default on
+            try {
+                // preloaded apps are added to the blacklist array when is recreated, handled in the notification manager
+                allowed = mNotificationManager.isPackageAllowedForFloatingMode(currentViewPackage);
+            } catch (android.os.RemoteException ex) {
+                // System is dead
+            }
+            if (!allowed) {
+                dismissAndGoBack();
+                String text = mContext.getResources().getString(R.string.floating_mode_blacklisted_app);
+                int duration = Toast.LENGTH_LONG;
+                Toast.makeText(mContext, text, duration).show();
+                return;
+            } else {
+                dismissAndGoBack();
+            }
+            view.post(new Runnable() {
+                @Override
+                public void run() {
+                    dismissAndGoBack();
+                    Intent intent = ad.intent;
+                    intent.setFlags(Intent.FLAG_FLOATING_WINDOW
+                                    | Intent.FLAG_ACTIVITY_NEW_TASK);
+                    mContext.startActivity(intent);
+                }
+            });
+        }
+    }
+
     private void startApplicationDetailsActivity(String packageName) {
-        dismissAndGoBack();
         Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                 Uri.fromParts("package", packageName, null));
         intent.setComponent(intent.resolveActivity(mContext.getPackageManager()));
-        intent.setFlags(intent.getFlags() & ~Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY);
         TaskStackBuilder.create(getContext())
                 .addNextIntentWithParentStack(intent).startActivities();
     }
@@ -982,36 +1026,7 @@ public class RecentsPanelView extends FrameLayout implements OnItemClickListener
                         throw new IllegalStateException("Oops, no tag on view " + selectedView);
                     }
                 } else if (item.getItemId() == R.id.recent_launch_floating) {
-                    ViewHolder viewHolder = (ViewHolder) selectedView.getTag();
-                    if (viewHolder != null) {
-                        final TaskDescription ad = viewHolder.taskDescription;
-                        String currentViewPackage = ad.packageName;
-                        boolean allowed = true; // default on
-                        try {
-                            // preloaded apps are added to the blacklist array when is recreated, handled in the notification manager
-                            allowed = mNotificationManager.isPackageAllowedForFloatingMode(currentViewPackage);
-                        } catch (android.os.RemoteException ex) {
-                            // System is dead
-                        }
-                        if (!allowed) {
-                            dismissAndGoBack();
-                            String text = mContext.getResources().getString(R.string.floating_mode_blacklisted_app);
-                            int duration = Toast.LENGTH_LONG;
-                            Toast.makeText(mContext, text, duration).show();
-                            return true;
-                        } else {
-                            dismissAndGoBack();
-                        }
-                        selectedView.post(new Runnable() {
-                            @Override
-                            public void run() {
-                                Intent intent = ad.intent;
-                                intent.setFlags(Intent.FLAG_FLOATING_WINDOW
-                                        | Intent.FLAG_ACTIVITY_NEW_TASK);
-                                mContext.startActivity(intent);
-                            }
-                        });
-                    }
+                    launchFloating(selectedView);
                 } else {
                     return false;
                 }

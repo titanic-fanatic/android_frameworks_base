@@ -50,6 +50,7 @@ import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.os.Build.VERSION_CODES;
 import android.speech.tts.TextToSpeech;
+import android.telephony.MSimTelephonyManager;
 import android.text.TextUtils;
 import android.util.AndroidException;
 import android.util.Log;
@@ -722,7 +723,7 @@ public final class Settings {
      */
     @SdkConstant(SdkConstantType.ACTIVITY_INTENT_ACTION)
     public static final String ACTION_NOTIFICATION_LISTENER_SETTINGS
-            = "android.settings.NOTIFICATION_LISTENER_SETTINGS";
+            = "android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS";
 
     /**
      * Activity Action: Show settings for video captioning.
@@ -1311,7 +1312,7 @@ public final class Settings {
          * with that name.  Note that internally setting values are always
          * stored as strings, so this function converts the given value to a
          * string (1 or 0) before storing it.
-         * 
+         *
          * @param cr The ContentResolver to access.
          * @param name The name of the setting to modify.
          * @param value The new value for the setting.
@@ -2083,10 +2084,19 @@ public final class Settings {
         public static final String VOLUME_BLUETOOTH_SCO = "volume_bluetooth_sco";
 
         /**
-         * Whether to prevent loud volume levels when headset is first plugged in.
+         * Whether to display a warning dialog when the user attempts to increase media
+         * volume above a safe limit while a headset is connected. This feature is enabled
+         * by default to comply with safety regulations and the user must agree to a waiver
+         * if they wish to disable it.
          * @hide
          */
         public static final String SAFE_HEADSET_VOLUME = "safe_headset_volume";
+
+        /**
+         * Whether to reduce media volume to a safe limit each time a headset is plugged in.
+         * @hide
+         */
+        public static final String SAFE_HEADSET_VOLUME_RESTORE = "safe_headset_volume_restore";
 
         /**
          * Master volume (float in the range 0.0f to 1.0f).
@@ -2118,6 +2128,18 @@ public final class Settings {
         @Deprecated
         public static final String NOTIFICATIONS_USE_RING_VOLUME =
             "notifications_use_ring_volume";
+
+        /**
+         * Swipe recents for floating windows option
+         * @hide
+         */
+        public static final String RECENTS_SWIPE_FLOATING = "recents_swipe_floating";
+
+        /**
+         * Swipe notification for floating window option
+         * @hide
+         */
+        public static final String STATUS_BAR_NOTIFICATION_SWIPE_FLOATING = "status_bar_notification_swipe_floating";
 
         /**
          * Whether the blacklisting feature for phone calls is enabled
@@ -2714,6 +2736,16 @@ public final class Settings {
         public static final String DOCK_SOUNDS_ENABLED = Global.DOCK_SOUNDS_ENABLED;
 
         /**
+         * Displays a notification when wifi network has changed
+         * 0 - default (off)
+         * 1 - toast
+         * 2 - notification
+         * 3 - notification with sound
+         * @hide
+         */
+        public static final String WIFI_NETWORK_NOTIFICATIONS = "wifi_network_notifications";
+
+        /**
          * Whether to play sounds when the keyguard is shown and dismissed.
          * @hide
          */
@@ -2730,6 +2762,47 @@ public final class Settings {
          * @hide
          */
         public static final String LOCKSCREEN_CAMERA_WIDGET = "lockscreen_camera_widget";
+
+        /**
+         * Whether to display app circle sidebar
+         * @hide
+         */
+        public static final String ENABLE_APP_CIRCLE_BAR = "enable_app_circle_bar";
+
+        /**
+         * A list of packages to include in app circle bar.
+         * This should be a string of packages separated by |
+         * @hide
+         */
+        public static final String WHITELIST_APP_CIRCLE_BAR = "whitelist_app_circle_bar";
+
+        /**
+         * Width of the app circle bar trigger
+         *
+         * @hide
+         */
+        public static final String APP_CIRCLE_BAR_TRIGGER_WIDTH = "app_circle_bar_trigger_width";
+
+        /**
+         * Position of app circle bar trigger
+         *
+         * @hide
+         */
+        public static final String APP_CIRCLE_BAR_TRIGGER_TOP = "app_circle_bar_trigger_top";
+
+        /**
+         * Height of the app circle bar trigger
+         *
+         * @hide
+         */
+        public static final String APP_CIRCLE_BAR_TRIGGER_HEIGHT = "app_circle_bar_trigger_height";
+
+        /**
+         * Whether to display the trigger region or not
+         *
+         * @hide
+         */
+        public static final String APP_CIRCLE_BAR_SHOW_TRIGGER = "app_circle_bar_show_trigger";
 
         /**
          * Whether to hide the lockscreen gadgets glowing hints
@@ -3768,13 +3841,13 @@ public final class Settings {
          * @hide
          */
         public static final String LOCKSCREEN_NOTIFICATIONS_HEIGHT = "lockscreen_notifications_height";
-        
+
         /**
          * Changes the offset of the notifications to the top of the screen
          * @hide
          */
         public static final String LOCKSCREEN_NOTIFICATIONS_OFFSET_TOP = "lockscreen_notifications_offset_top";
-        
+
         /**
          * Enables a privacy mode which disables showing notifications.
          * @hide
@@ -3946,6 +4019,34 @@ public final class Settings {
          * @hide
          */
         public static final String POWER_MENU_PROFILES_ENABLED = "power_menu_profiles_enabled";
+
+        /**
+         * Network stats Color style
+         * @hide
+         */
+        public static final String NETWORK_TRAFFIC_COLOR = "network_traffic_color";
+
+        /**
+         * Whether or not to hide the network traffic indicator when there is no activity
+         * @hide
+         */
+        public static final String NETWORK_TRAFFIC_AUTOHIDE = "network_traffic_autohide";
+
+        /**
+         * Network traffic inactivity threshold (default is 10 kBs)
+         * @hide
+         */
+        public static final String NETWORK_TRAFFIC_AUTOHIDE_THRESHOLD = "network_traffic_autohide_threshold";
+
+        /**
+         * Network traffic indicator, goes from least to greatest significant bitwise
+         * 0 = Display up-stream traffic if set
+         * 1 = Display down-stream traffic if set
+         * 2 = Show as Byte/s if set
+         * 16-31 = Refresh interval(ms)  min: 250  max: 32750  default: 1000
+         * @hide
+         */
+        public static final String NETWORK_TRAFFIC_STATE = "network_traffic_state";
 
         /**
          * Clear Recents button
@@ -4316,6 +4417,21 @@ public final class Settings {
         public static final String STATUSBAR_CLOCK_FONT_STYLE = "statusbar_clock_font_style";
 
         /**
+         * Toggle for 6 bar signal bars
+         * @hide
+         */
+        public static final String STATUSBAR_6BAR_SIGNAL = "statusbar_6bar_signal";
+
+        /**
+         * Settings to backup. This is here so that it's in the same place as the settings
+         * keys and easy to update.
+         *
+         * NOTE: Settings are backed up and restored in the order they appear
+         *       in this array. If you have one setting depending on another,
+         *       make sure that they are ordered appropriately.
+         *
+
+        /**
          * Sensitivity of all system shake events
          * @hide
          */
@@ -4468,6 +4584,18 @@ public final class Settings {
          */
         public static final String HEADS_UP_SHOW_UPDATE = "heads_up_show_update";
 
+         /**
+         * Heads Up background color
+         * @hide
+         */
+        public static final String HEADS_UP_BG_COLOR = "heads_up_bg_color";
+
+        /**
+         * Heads Up text color
+         * @hide
+         */
+        public static final String HEADS_UP_TEXT_COLOR = "heads_up_text_color";
+
         /**
          * Heads Up in Floating Window
          *
@@ -4481,25 +4609,6 @@ public final class Settings {
          * @hide
          */
         public static final String LOCKSCREEN_ROTATION_ENABLED = "lockscreen_rotation_enabled";
-
-        /**
-         * Whether to show the network status in the status bar
-         * @hide
-         */
-        public static final String STATUS_BAR_NETWORK_STATS = "status_bar_network_stats";
-
-        /**
-         * Frequency at which stats are updated, in milliseconds
-         * @hide
-         */
-        public static final String STATUS_BAR_NETWORK_STATS_UPDATE_INTERVAL = "status_bar_network_stats_update_frequency";
-
-        /**
-         * statusbar network stats text color
-         *
-         * @hide
-         */
-        public static final String STATUS_BAR_NETWORK_STATS_TEXT_COLOR = "status_bar_network_stats_text_color";
 
          /**
          * Width and height of output video expressed in WxH
@@ -4870,6 +4979,25 @@ public final class Settings {
          * @hide
          */
         public static final String ALLOW_CALL_RECORDING = "allow_call_recording";
+
+        /**
+         * Whether wifi settings will connect to access point automatically
+         * 0 = automatically
+         * 1 = manually
+         * @hide
+         */
+        public static final String WIFI_AUTO_CONNECT_TYPE = "wifi_auto_connect_type";
+
+        /**
+         * Whether wifi settings will connect to access point automatically when
+         * network from mobile network transform to Wifi network
+         * 0 = automatically
+         * 1 = manually
+         * 2 = always ask
+         *
+         * @hide
+         */
+        public static final String DATA_TO_WIFI_CONNECT_TYPE = "data_to_wifi_connect_type";
 
         /**
          * Settings to backup. This is here so that it's in the same place as the settings
@@ -5309,6 +5437,7 @@ public final class Settings {
             MOVED_TO_GLOBAL.add(Settings.Global.WIFI_P2P_DEVICE_NAME);
             MOVED_TO_GLOBAL.add(Settings.Global.WIFI_SAVED_STATE);
             MOVED_TO_GLOBAL.add(Settings.Global.WIFI_SUPPLICANT_SCAN_INTERVAL_MS);
+            MOVED_TO_GLOBAL.add(Settings.Global.WIFI_SUPPLICANT_SCAN_INTERVAL_WFD_CONNECTED_MS);
             MOVED_TO_GLOBAL.add(Settings.Global.WIFI_SUSPEND_OPTIMIZATIONS_ENABLED);
             MOVED_TO_GLOBAL.add(Settings.Global.WIFI_WATCHDOG_ON);
             MOVED_TO_GLOBAL.add(Settings.Global.WIFI_WATCHDOG_POOR_NETWORK_TEST_ENABLED);
@@ -8105,6 +8234,13 @@ public final class Settings {
                "wifi_scan_interval_p2p_connected_ms";
 
        /**
+        * The intervel in milliseconds to scan at supplicant when wfd session
+        * @hide
+        */
+       public static final String WIFI_SUPPLICANT_SCAN_INTERVAL_WFD_CONNECTED_MS =
+                 "wifi_scan_intervel_wfd_connected_ms";
+
+       /**
         * Whether the Wi-Fi watchdog is enabled.
         */
        public static final String WIFI_WATCHDOG_ON = "wifi_watchdog_on";
@@ -9300,6 +9436,36 @@ public final class Settings {
           * @hide
           */
         public static final String TUNE_AWAY_STATUS = "tune_away";
+
+        /**
+         * @hide
+         */
+        public static final String MULTI_SIM_SUB_NAME = "multi_sim_sub_name";
+
+        /**
+         * @hide
+         */
+        public static String getSimNameForSubscription(Context context, int subscription,
+                String defaultValue) {
+            String imsi = MSimTelephonyManager.from(context).getSubscriberId(subscription);
+            if (imsi == null) {
+                return defaultValue;
+            }
+            String name = Settings.Global.getString(context.getContentResolver(),
+                    MULTI_SIM_SUB_NAME + "_" + imsi);
+            return TextUtils.isEmpty(name) ? defaultValue : name;
+        }
+
+        /**
+         * @hide
+         */
+        public static void setSimNameForSubscription(Context context, int subscription,
+                String name) {
+            String imsi = MSimTelephonyManager.from(context).getSubscriberId(subscription);
+            if (imsi == null) return;
+            String prefKey = MULTI_SIM_SUB_NAME + "_" + imsi;
+            Settings.Global.putString(context.getContentResolver(), prefKey, name);
+        }
     }
 
     /**

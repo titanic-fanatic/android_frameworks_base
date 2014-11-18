@@ -36,7 +36,6 @@ import static com.android.server.am.ActivityStackSupervisor.DEBUG_STATES;
 import static com.android.server.am.ActivityStackSupervisor.HOME_STACK_ID;
 
 import com.android.internal.os.BatteryStatsImpl;
-import com.android.internal.util.Objects;
 import com.android.server.AttributeCache;
 import com.android.server.Watchdog;
 import com.android.server.am.ActivityManagerService.ItemMatcher;
@@ -85,7 +84,7 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-//import java.util.Objects;
+import java.util.Objects;
 
 /**
  * State and management of a single stack of activities.
@@ -1161,7 +1160,7 @@ final class ActivityStack {
                     // Aggregate current change flags.
                     configChanges |= r.configChangeFlags;
 
-                    if (r.fullscreen) {
+                    if (r.fullscreen && !r.floatingWindow) {
                         // At this point, nothing else needs to be shown
                         if (DEBUG_VISBILITY) Slog.v(TAG, "Fullscreen: at " + r);
                         behindFullscreen = true;
@@ -1309,11 +1308,12 @@ final class ActivityStack {
 
         final TaskRecord nextTask = next.task;
         final TaskRecord prevTask = prev != null ? prev.task : null;
+        boolean isFloatingWindow = prev != null ? prev.floatingWindow : false;
         if (prevTask != null && prevTask.mOnTopOfHome && prev.finishing && prev.frontOfTask) {
             if (DEBUG_STACK)  mStackSupervisor.validateTopActivitiesLocked();
             if (prevTask == nextTask) {
                 prevTask.setFrontOfTask();
-            } else if (prevTask != topTask()) {
+            } else if (prevTask != topTask() && !isFloatingWindow) {
                 // This task is going away but it was supposed to return to the home task.
                 // Now the task above it has to return to the home task instead.
                 final int taskNdx = mTaskHistory.indexOf(prevTask) + 1;
@@ -1758,7 +1758,6 @@ final class ActivityStack {
 
     final void startActivityLocked(ActivityRecord r, boolean newTask,
             boolean doResume, boolean keepCurTransition, Bundle options) {
-
         TaskRecord rTask = r.task;
         final int taskId = rTask.taskId;
         if (taskForIdLocked(taskId) == null || newTask) {
@@ -2436,7 +2435,7 @@ final class ActivityStack {
         ArrayList<ActivityRecord> activities = r.task.mActivities;
         for (int index = activities.indexOf(r); index >= 0; --index) {
             ActivityRecord cur = activities.get(index);
-            if (!Objects.equal(cur.taskAffinity, r.taskAffinity)) {
+            if (!Objects.equals(cur.taskAffinity, r.taskAffinity)) {
                 break;
             }
             finishActivityLocked(cur, Activity.RESULT_CANCELED, null, "request-affinity", true);

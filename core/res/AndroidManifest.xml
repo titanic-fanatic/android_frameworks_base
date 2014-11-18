@@ -255,6 +255,7 @@
         android:name="com.android.server.connectivityservice.CONNECTED_TO_PROVISIONING_NETWORK_ACTION" />
 
     <protected-broadcast android:name="org.cyanogenmod.intent.action.THEME_CHANGED" />
+    <protected-broadcast android:name="android.intent.action.THEME_RESOURCES_CACHED" />
 
     <!-- ====================================== -->
     <!-- Permissions for things that cost money -->
@@ -1937,7 +1938,7 @@
     <permission android:name="android.permission.SET_ACTIVITY_WATCHER"
         android:label="@string/permlab_runSetActivityWatcher"
         android:description="@string/permdesc_runSetActivityWatcher"
-        android:protectionLevel="signature" />
+        android:protectionLevel="signature|system" />
 
     <!-- Allows an application to call the activity manager shutdown() API
          to put the higher-level system there into a shutdown state.
@@ -2546,14 +2547,6 @@
          any metadata and intents attached.
          @hide -->
     <permission android:name="android.permission.ACCESS_NOTIFICATIONS"
-        android:label="@string/permlab_accessNotifications"
-        android:description="@string/permdesc_accessNotifications"
-        android:protectionLevel="signature|system" />
-
-    <!-- Internal permission protecting access to internal notification listener
-        @hide
-    -->
-    <permission android:name="android.permission.SYSTEM_NOTIFICATION_LISTENER"
         android:label="@string/permlab_accessNotifications"
         android:description="@string/permdesc_accessNotifications"
         android:protectionLevel="signature|system" />
