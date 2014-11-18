@@ -575,6 +575,11 @@ public class ActivityManager {
      * recent tasks that currently are not available to the user.
      */
     public static final int RECENT_IGNORE_UNAVAILABLE = 0x0002;
+    
+    /**
+     * @hide
+     */
+    public static final int RECENT_DO_NOT_COUNT_EXCLUDED = 0x0004;
 
     /**
      * Return a list of the tasks that the user has recently launched, with
