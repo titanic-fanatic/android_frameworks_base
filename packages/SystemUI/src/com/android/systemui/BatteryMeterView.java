@@ -99,7 +99,8 @@ public class BatteryMeterView extends View implements DemoMode {
     private final RectF mClipFrame = new RectF();
     private final RectF mBoltFrame = new RectF();
 
-    private final int mDSBDuration;
+    private int mDSBDuration;
+    private Context mContext;
 
     private int mBatteryStyle;
     private int mBatteryColor;
@@ -217,6 +218,8 @@ public class BatteryMeterView extends View implements DemoMode {
 
     public BatteryMeterView(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
+        
+        mContext = context;
 
         final Resources res = context.getResources();
         TypedArray levels = res.obtainTypedArray(R.array.batterymeter_color_levels);
@@ -270,7 +273,8 @@ public class BatteryMeterView extends View implements DemoMode {
 
         updateSettings(mIsQuickSettings);
 
-        mDSBDuration = context.getResources().getInteger(R.integer.dsb_transition_duration);
+        mDSBDuration = Settings.System.getInt(mContext.getContentResolver(),
+                Settings.System.DYNAMIC_SYSTEM_BARS_ANIM_DURATION_STATE, 500);
         BarBackgroundUpdater.addListener(new BarBackgroundUpdater.UpdateListener(this) {
 
             @Override
@@ -288,6 +292,10 @@ public class BatteryMeterView extends View implements DemoMode {
     protected ObjectAnimator buildAnimator(final Paint painter, final int toColor)  {
         final ObjectAnimator colorFader = ObjectAnimator.ofObject(painter, "backgroundColor",
                 new ArgbEvaluator(), painter.getColor(), toColor);
+                
+        mDSBDuration = Settings.System.getInt(mContext.getContentResolver(),
+                Settings.System.DYNAMIC_SYSTEM_BARS_ANIM_DURATION_STATE, 500);
+                
         colorFader.setDuration(mDSBDuration);
         colorFader.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
             @Override

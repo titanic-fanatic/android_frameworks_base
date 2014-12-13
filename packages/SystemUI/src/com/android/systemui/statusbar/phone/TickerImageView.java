@@ -23,6 +23,8 @@ import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.graphics.PorterDuff;
 import android.os.Handler;
+import android.os.UserHandle;
+import android.provider.Settings;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.ViewGroup;
@@ -35,14 +37,17 @@ import java.util.ArrayList;
 
 public class TickerImageView extends ImageSwitcher {
     private final Handler mHandler;
-    private final int mDSBDuration;
+    private int mDSBDuration;
+    private Context mContext;
     private int mPreviousOverrideIconColor = 0;
     private int mOverrideIconColor = 0;
 
     public TickerImageView(final Context context, final AttributeSet attrs) {
         super(context, attrs);
+        mContext = context;
         mHandler = new Handler();
-        mDSBDuration = context.getResources().getInteger(R.integer.dsb_transition_duration);
+        mDSBDuration = Settings.System.getInt(mContext.getContentResolver(),
+                Settings.System.DYNAMIC_SYSTEM_BARS_ANIM_DURATION_STATE, 500);
         BarBackgroundUpdater.addListener(new BarBackgroundUpdater.UpdateListener(this) {
 
             @Override
@@ -67,6 +72,9 @@ public class TickerImageView extends ImageSwitcher {
 
                             });
                         } else {
+                            mDSBDuration = Settings.System.getInt(mContext.getContentResolver(),
+                                    Settings.System.DYNAMIC_SYSTEM_BARS_ANIM_DURATION_STATE, 500);
+                                    
                             anims.add(ObjectAnimator.ofObject(iv, "colorFilter",
                                     new ArgbEvaluator(), mPreviousOverrideIconColor,
                                     mOverrideIconColor).setDuration(mDSBDuration));

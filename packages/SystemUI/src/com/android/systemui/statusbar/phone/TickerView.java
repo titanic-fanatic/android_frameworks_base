@@ -22,6 +22,8 @@ import android.animation.ArgbEvaluator;
 import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.os.Handler;
+import android.os.UserHandle;
+import android.provider.Settings;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.ViewGroup;
@@ -36,14 +38,17 @@ public class TickerView extends TextSwitcher {
     Ticker mTicker;
 
     private final Handler mHandler;
-    private final int mDSBDuration;
+    private int mDSBDuration;
+    private Context mContext;
     private final int mDefaultTextColor = 0xffffffff; // TODO use the resource value instead
     private int mOverrideTextColor = 0;
 
     public TickerView(Context context, AttributeSet attrs) {
         super(context, attrs);
+        mContext = context;
         mHandler = new Handler();
-        mDSBDuration = context.getResources().getInteger(R.integer.dsb_transition_duration);
+        mDSBDuration = Settings.System.getInt(mContext.getContentResolver(),
+                Settings.System.DYNAMIC_SYSTEM_BARS_ANIM_DURATION_STATE, 500);
         BarBackgroundUpdater.addListener(new BarBackgroundUpdater.UpdateListener(this) {
 
             @Override
@@ -60,6 +65,10 @@ public class TickerView extends TextSwitcher {
                     final TextView tv = (TextView) getChildAt(i);
                     if (tv != null) {
                         final int currentColor = tv.getTextColors().getDefaultColor();
+                        
+                        mDSBDuration = Settings.System.getInt(mContext.getContentResolver(),
+                                Settings.System.DYNAMIC_SYSTEM_BARS_ANIM_DURATION_STATE, 500);
+                                
                         anims.add(ObjectAnimator.ofObject(tv, "textColor", new ArgbEvaluator(),
                             currentColor, targetColor).setDuration(mDSBDuration));
                     }

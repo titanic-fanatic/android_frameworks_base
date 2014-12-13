@@ -79,7 +79,8 @@ public class SignalClusterView
     View mSpacer;
 
     private final Handler mHandler;
-    private final int mDSBDuration;
+    private int mDSBDuration;
+    private Context mContext;
     private int mPreviousOverrideIconColor = 0;
     private int mOverrideIconColor = 0;
     private SettingsObserver mSettingsObserver;
@@ -117,8 +118,12 @@ public class SignalClusterView
 
     public SignalClusterView(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
+        
+        mContext = context;
+        
         mHandler = new Handler();
-        mDSBDuration = context.getResources().getInteger(R.integer.dsb_transition_duration);
+        mDSBDuration = Settings.System.getInt(mContext.getContentResolver(),
+                Settings.System.DYNAMIC_SYSTEM_BARS_ANIM_DURATION_STATE, 500);
         BarBackgroundUpdater.addListener(new BarBackgroundUpdater.UpdateListener(this) {
 
             @Override
@@ -181,6 +186,10 @@ public class SignalClusterView
     private ObjectAnimator buildAnimator(final ImageView target) {
         final ObjectAnimator animator = ObjectAnimator.ofObject(target, "colorFilter",
                 new ArgbEvaluator(), mPreviousOverrideIconColor, mOverrideIconColor);
+                
+        mDSBDuration = Settings.System.getInt(mContext.getContentResolver(),
+                Settings.System.DYNAMIC_SYSTEM_BARS_ANIM_DURATION_STATE, 500);
+                
         animator.setDuration(mDSBDuration);
         animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
 

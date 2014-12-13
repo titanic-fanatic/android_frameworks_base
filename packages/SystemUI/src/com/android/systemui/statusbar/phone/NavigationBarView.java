@@ -158,7 +158,7 @@ public class NavigationBarView extends LinearLayout implements BaseStatusBar.Nav
     // performs manual animation in sync with layout transitions
     private final NavTransitionListener mTransitionListener = new NavTransitionListener();
 
-    private final int mDSBDuration;
+    private int mDSBDuration;
 
     private class NavTransitionListener implements TransitionListener {
         private boolean mBackTransitioning;
@@ -299,7 +299,8 @@ public class NavigationBarView extends LinearLayout implements BaseStatusBar.Nav
         mHasCmKeyguard = keyguardMetadata != null &&
                 keyguardMetadata.getBoolean("com.cyanogenmod.keyguard", false);
 
-        mDSBDuration = context.getResources().getInteger(R.integer.dsb_transition_duration);
+        mDSBDuration = Settings.System.getInt(mContext.getContentResolver(),
+                Settings.System.DYNAMIC_SYSTEM_BARS_ANIM_DURATION_STATE, 500);
         BarBackgroundUpdater.addListener(new BarBackgroundUpdater.UpdateListener(this) {
 
             @Override
@@ -341,6 +342,9 @@ public class NavigationBarView extends LinearLayout implements BaseStatusBar.Nav
 
                     });
                 } else {
+                    mDSBDuration = Settings.System.getInt(mContext.getContentResolver(),
+                            Settings.System.DYNAMIC_SYSTEM_BARS_ANIM_DURATION_STATE, 500);
+                            
                     anims.add(ObjectAnimator.ofObject(button, "colorFilter",
                             new ArgbEvaluator(), mPreviousOverrideIconColor,
                             mOverrideIconColor).setDuration(mDSBDuration));

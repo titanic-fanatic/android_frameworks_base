@@ -4713,6 +4713,13 @@ public final class Settings {
         public static final String DYNAMIC_NAVIGATION_BAR_STATE = "dynamic_navigation_bar_state";
 
         /**
+         * The animation duration of system bar color change (ms)
+         * @hide
+         */
+        public static final String DYNAMIC_SYSTEM_BARS_ANIM_DURATION_STATE =
+                "dynamic_system_bars_anim_duration_state";
+
+        /**
          * Whether the dynamic system bars are set to have a gradient overlay
          * 0 = disabled (default)
          * 1 = enabled

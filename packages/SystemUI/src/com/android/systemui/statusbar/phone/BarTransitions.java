@@ -31,6 +31,8 @@ import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.os.SystemClock;
 import android.os.Handler;
+import android.os.UserHandle;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.View;
 import android.view.animation.LinearInterpolator;
@@ -38,6 +40,8 @@ import android.view.animation.LinearInterpolator;
 import com.android.systemui.R;
 
 public class BarTransitions {
+    private static final String TAG = "DynamicSystemBars";
+    
     private static final boolean DEBUG = false;
     private static final boolean DEBUG_COLORS = false;
 
@@ -54,6 +58,7 @@ public class BarTransitions {
     public static final int BACKGROUND_DURATION = 200;
 
     private static int mDSBDuration;
+    private static Context mContext;
 
     private final String mTag;
     private final View mView;
@@ -153,6 +158,7 @@ public class BarTransitions {
 
         public BarBackgroundDrawable(final Context context, final int opaqueColorResId,
                 final int semiTransparentColorResId, final int gradientResId) {
+            mContext = context;
             mHandler = new Handler();
 
             mOpaqueColorResId = opaqueColorResId;
@@ -160,7 +166,13 @@ public class BarTransitions {
             mGradientResId = gradientResId;
 
             final Resources res = context.getResources();
-            mDSBDuration = res.getInteger(R.integer.dsb_transition_duration);
+            mDSBDuration = Settings.System.getInt(mContext.getContentResolver(),
+                Settings.System.DYNAMIC_SYSTEM_BARS_ANIM_DURATION_STATE, 500);
+            
+            Log.e(TAG, "---------------------------------------------------------------------------");
+            Log.e(TAG, "BarTransitions: mDSBDuration: " + mDSBDuration);
+            Log.e(TAG, "---------------------------------------------------------------------------");
+            
             updateResources(res);
         }
 
@@ -425,6 +437,9 @@ public class BarTransitions {
                 // no values are changing - nothing to do
                 return null;
             }
+            
+            mDSBDuration = Settings.System.getInt(mContext.getContentResolver(),
+                    Settings.System.DYNAMIC_SYSTEM_BARS_ANIM_DURATION_STATE, 500);
 
             final ValueAnimator colorAnimator = ValueAnimator.ofObject(new ArgbEvaluator(),
                     mCurrentColor, targetColor).setDuration(mDSBDuration);

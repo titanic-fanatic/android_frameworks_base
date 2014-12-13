@@ -63,7 +63,8 @@ public class StatusBarIconView extends AnimatedImageView {
     private GlobalSettingsObserver mObserver;
 
     private final Handler mHandler;
-    private final int mDSBDuration;
+    private int mDSBDuration;
+    private Context mContext;
     private int mPreviousOverrideIconColor = 0;
     private int mOverrideIconColor = 0;
 
@@ -72,6 +73,7 @@ public class StatusBarIconView extends AnimatedImageView {
         final Resources res = context.getResources();
         final float densityMultiplier = res.getDisplayMetrics().density;
         final float scaledPx = 8 * densityMultiplier;
+        mContext = context;
         mSlot = slot;
         mNumberPain = new Paint();
         mNumberPain.setTextAlign(Paint.Align.CENTER);
@@ -99,7 +101,8 @@ public class StatusBarIconView extends AnimatedImageView {
         setScaleType(ImageView.ScaleType.CENTER);
 
         mHandler = new Handler();
-        mDSBDuration = context.getResources().getInteger(R.integer.dsb_transition_duration);
+        mDSBDuration = Settings.System.getInt(mContext.getContentResolver(),
+                Settings.System.DYNAMIC_SYSTEM_BARS_ANIM_DURATION_STATE, 500);
         BarBackgroundUpdater.addListener(new BarBackgroundUpdater.UpdateListener(this) {
 
             @Override
@@ -122,6 +125,10 @@ public class StatusBarIconView extends AnimatedImageView {
                     final ObjectAnimator anim = ObjectAnimator.ofObject(StatusBarIconView.this,
                             "colorFilter", new ArgbEvaluator(), mPreviousOverrideIconColor,
                             mOverrideIconColor);
+                    
+                    mDSBDuration = Settings.System.getInt(mContext.getContentResolver(),
+                            Settings.System.DYNAMIC_SYSTEM_BARS_ANIM_DURATION_STATE, 500);
+                            
                     anim.setDuration(mDSBDuration);
                     anim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
 
@@ -146,10 +153,11 @@ public class StatusBarIconView extends AnimatedImageView {
         final float scale = (float)imageBounds / (float)outerBounds;
         setScaleX(scale);
         setScaleY(scale);
+        mContext = context;
 
         mHandler = new Handler();
-        mDSBDuration = context.getResources().getInteger(com.android.systemui.R.integer
-                .dsb_transition_duration);
+        mDSBDuration = Settings.System.getInt(mContext.getContentResolver(),
+                Settings.System.DYNAMIC_SYSTEM_BARS_ANIM_DURATION_STATE, 500);
         BarBackgroundUpdater.addListener(new BarBackgroundUpdater.UpdateListener(this) {
 
             @Override
@@ -172,6 +180,10 @@ public class StatusBarIconView extends AnimatedImageView {
                     final ObjectAnimator anim = ObjectAnimator.ofObject(StatusBarIconView.this,
                             "colorFilter", new ArgbEvaluator(), mPreviousOverrideIconColor,
                             mOverrideIconColor);
+                    
+                    mDSBDuration = Settings.System.getInt(mContext.getContentResolver(),
+                            Settings.System.DYNAMIC_SYSTEM_BARS_ANIM_DURATION_STATE, 500);
+                    
                     anim.setDuration(mDSBDuration);
                     anim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
 
@@ -270,6 +282,10 @@ public class StatusBarIconView extends AnimatedImageView {
         } else {
             final ObjectAnimator anim = ObjectAnimator.ofObject(this, "colorFilter",
                     new ArgbEvaluator(), mPreviousOverrideIconColor, mOverrideIconColor);
+            
+            mDSBDuration = Settings.System.getInt(mContext.getContentResolver(),
+                    Settings.System.DYNAMIC_SYSTEM_BARS_ANIM_DURATION_STATE, 500);
+                
             anim.setDuration(mDSBDuration);
             anim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
 

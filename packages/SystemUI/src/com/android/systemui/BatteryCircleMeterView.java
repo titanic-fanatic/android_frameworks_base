@@ -111,7 +111,8 @@ public class BatteryCircleMeterView extends ImageView {
 
     private int mOverrideIconColor = 0;
 
-    private final int mDSBDuration;
+    private int mDSBDuration;
+    private Context mContext;
 
     // runnable to invalidate view via mHandler.postDelayed() call
     private final Runnable mInvalidate = new Runnable() {
@@ -159,6 +160,8 @@ public class BatteryCircleMeterView extends ImageView {
 
     public BatteryCircleMeterView(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
+        
+        mContext = context;
 
         TypedArray circleBatteryType = context.obtainStyledAttributes(attrs,
             com.android.systemui.R.styleable.BatteryIcon, 0, 0);
@@ -166,8 +169,8 @@ public class BatteryCircleMeterView extends ImageView {
         mCircleBatteryView = circleBatteryType.getString(
                 com.android.systemui.R.styleable.BatteryIcon_batteryView);
 
-        mDSBDuration = context.getResources().getInteger(com.android.systemui.R.integer
-                .dsb_transition_duration);
+        mDSBDuration = Settings.System.getInt(mContext.getContentResolver(),
+                Settings.System.DYNAMIC_SYSTEM_BARS_ANIM_DURATION_STATE, 500);
 
         circleBatteryType.recycle();
 
@@ -221,6 +224,10 @@ public class BatteryCircleMeterView extends ImageView {
                     if (mActivated && mAttached) {
                         final ObjectAnimator anim = ObjectAnimator.ofObject(mPaintSystem, "color",
                                 new ArgbEvaluator(), mPaintSystem.getColor(), mOverrideIconColor);
+
+                        mDSBDuration = Settings.System.getInt(mContext.getContentResolver(),
+                                Settings.System.DYNAMIC_SYSTEM_BARS_ANIM_DURATION_STATE, 500);
+                                
                         anim.setDuration(mDSBDuration);
                         anim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
 

@@ -19,6 +19,9 @@ package com.android.systemui.statusbar.policy;
 import android.animation.ArgbEvaluator;
 import android.animation.ObjectAnimator;
 import android.content.Context;
+import android.os.Handler;
+import android.os.UserHandle;
+import android.provider.Settings;
 import android.util.AttributeSet;
 
 import com.android.systemui.R;
@@ -28,7 +31,8 @@ import com.android.systemui.statusbar.phone.BarBackgroundUpdater;
  * Digital clock exclusively for the phone status bar.
  */
 public class PhoneStatusBarClock extends Clock {
-    private final int mDSBDuration;
+    private int mDSBDuration;
+    private Context mContext;
 
     public PhoneStatusBarClock(final Context context) {
         this(context, null);
@@ -41,8 +45,11 @@ public class PhoneStatusBarClock extends Clock {
     public PhoneStatusBarClock(final Context context, final AttributeSet attrs,
             final int defStyle) {
         super(context, attrs, defStyle);
+        
+        mContext = context;
 
-        mDSBDuration = context.getResources().getInteger(R.integer.dsb_transition_duration);
+        mDSBDuration = Settings.System.getInt(mContext.getContentResolver(),
+                Settings.System.DYNAMIC_SYSTEM_BARS_ANIM_DURATION_STATE, 500);
         BarBackgroundUpdater.addListener(new BarBackgroundUpdater.UpdateListener(this) {
 
             @Override
@@ -51,6 +58,10 @@ public class PhoneStatusBarClock extends Clock {
                 final int currentColor = getTextColors().getDefaultColor();
                 // TODO use the resource value instead for themeability
                 final int targetColor = iconColor == 0 ? 0xffffffff : iconColor;
+
+                mDSBDuration = Settings.System.getInt(mContext.getContentResolver(),
+                        Settings.System.DYNAMIC_SYSTEM_BARS_ANIM_DURATION_STATE, 500);
+                
                 return ObjectAnimator.ofObject(PhoneStatusBarClock.this, "textColor",
                         new ArgbEvaluator(), currentColor, targetColor).setDuration(mDSBDuration);
             }
